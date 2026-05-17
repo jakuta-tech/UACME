@@ -603,7 +603,7 @@ akagi64.exe 61 c:\windows\system32\charmap.exe
      * Works from: Windows 10 (17134)
      * Fixed in: Windows 11 (22000)
         * How: Windows components redesign
-      * Code status: removed starting from v3.5.7 :tractor:
+      * Code status: added in v3.5.7
 57. Author: Leo Davidson derivative by Win32/Gapz
      * Type: Dll Hijack
      * Method: IFileOperation
