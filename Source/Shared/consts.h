@@ -4,9 +4,9 @@
 *
 *  TITLE:       CONSTS.H
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        15 May 2026
+*  DATE:        19 Jul 2026
 *
 *  Global consts definition file.
 *
@@ -29,8 +29,8 @@
 
 #define UCM_VERSION_MAJOR       3
 #define UCM_VERSION_MINOR       7
-#define UCM_VERSION_REVISION    0
-#define UCM_VERSION_BUILD       2605
+#define UCM_VERSION_REVISION    1
+#define UCM_VERSION_BUILD       2607
 
 #define SUPRUNPROCESS_TIMEOUT_DEFAULT 12000
 
@@ -207,6 +207,7 @@
 #define MMCEX_DIR                   L"\\MMCEx"
 #define WBEM_DIR                    L"wbem\\"
 #define WEBVIEW_DIR                 L"EBWebView"
+#define REGDB_DIR                   L"\\Registration"
 
 //
 // Shell Verbs

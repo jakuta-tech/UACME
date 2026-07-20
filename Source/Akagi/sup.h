@@ -4,9 +4,9 @@
 *
 *  TITLE:       SUP.H
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        15 May 2026
+*  DATE:        19 Jul 2026
 *
 *  Common header file for the program support routines.
 *
@@ -360,6 +360,9 @@ NTSTATUS supCreateDirectory(
     _In_ OBJECT_ATTRIBUTES *ObjectAttributes,
     _In_ ULONG DirectoryShareFlags,
     _In_ ULONG DirectoryAttributes);
+
+BOOL supRemoveDirectory(
+    _In_ LPCWSTR lpDirectory);
 
 BOOL supCreateSharedParametersBlock(
     _In_ PVOID ucmContext);

@@ -655,6 +655,7 @@
     <ClCompile Include="methods\api0cradle.c" />
     <ClCompile Include="methods\azagarampur.c" />
     <ClCompile Include="methods\dwells.c" />
+    <ClCompile Include="methods\R41N3RZUF477.c" />
     <ClCompile Include="methods\shellsup.c" />
     <ClCompile Include="methods\hakril.c" />
     <ClCompile Include="methods\hybrids.c" />

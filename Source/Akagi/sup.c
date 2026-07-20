@@ -2195,6 +2195,44 @@ NTSTATUS supCreateDirectory(
 }
 
 /*
+* supRemoveDirectory
+*
+* Purpose:
+*
+* Native remove directory.
+*
+*/
+BOOL supRemoveDirectory(
+    _In_ LPCWSTR lpDirectory
+)
+{
+    UNICODE_STRING usDirectory;
+    OBJECT_ATTRIBUTES ObjectAttributes;
+    NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+    if (lpDirectory == NULL || *lpDirectory == 0) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
+    if (RtlDosPathNameToNtPathName_U(lpDirectory, &usDirectory, NULL, NULL)) {
+
+        InitializeObjectAttributes(
+            &ObjectAttributes,
+            &usDirectory,
+            OBJ_CASE_INSENSITIVE,
+            NULL,
+            NULL);
+
+        status = NtDeleteFile(&ObjectAttributes);
+        RtlFreeUnicodeString(&usDirectory);
+    }
+
+    supSetLastErrorFromNtStatus(status);
+    return NT_SUCCESS(status);
+}
+
+/*
 * supxCreateBoundaryDescriptorSID
 *
 * Purpose:

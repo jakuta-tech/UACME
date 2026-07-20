@@ -94,6 +94,7 @@ UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[] = {
     { UacMethodVFServerDiagProf,    MethodVFServerDiagProf, { NT_WIN7_RTM, MAXDWORD}, AKATSUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodIscsiCpl,            MethodIscsiCpl, { NT_WIN7_RTM, MAXDWORD }, FUBUKI32_ID, FALSE, FALSE, TRUE },
     { UacMethodAtlHijack,           MethodAtlHijack, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { UacMethodRequestTrace,        MethodRequestTrace, { NT_WIN11_24H2, NT_WIN11_25H2 }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodQuickAssist,         MethodQuickAssist, { NT_WIN10_REDSTONE5, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodCleanMgrAdmin,       MethodCleanMgrAdmin, { NT_WIN10_21H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE }
 };
