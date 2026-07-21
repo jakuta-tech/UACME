@@ -194,6 +194,9 @@ HANDLE ucmGetHwndFullProcessHandle(
 HWND ucmFindFirstElevatedWindow(
     VOID);
 
+HANDLE ucmFindFirstElevatedProcessHandle(
+    VOID);
+
 BOOL ucmStartLockedElevatedProcess(
     _In_ LPCWSTR OplockFile,
     _In_ LPCWSTR TaskName,
@@ -201,6 +204,10 @@ BOOL ucmStartLockedElevatedProcess(
 
 BOOL ucmRunScheduledTask(
     _In_ LPCWSTR TaskName);
+
+VOID ucmLogMessage(
+    _In_ LPCWSTR FileName,
+    _In_ LPCWSTR Message);
 
 #ifdef _DEBUG
 #define ucmDbgMsg(Message)  OutputDebugString(Message)

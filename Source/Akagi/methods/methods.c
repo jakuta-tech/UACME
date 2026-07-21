@@ -56,6 +56,7 @@ UCM_API(MethodRequestTrace);
 UCM_API(MethodQuickAssist);
 UCM_API(MethodCleanMgrAdmin);
 UCM_API(MethodUnifiedConsent);
+UCM_API(MethodTabTip);
 
 ULONG UCM_WIN32_NOT_IMPLEMENTED[] = {
     UacMethodNICPoison,
@@ -68,7 +69,8 @@ ULONG UCM_WIN32_NOT_IMPLEMENTED[] = {
     UacMethodAtlHijack,
     UacMethodQuickAssist,
     UacMethodCleanMgrAdmin,
-    UacMethodUnifiedConsent
+    UacMethodUnifiedConsent,
+    UacMethodTabTip
 };
 
 UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[] = {
@@ -100,6 +102,7 @@ UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[] = {
     { UacMethodQuickAssist,         MethodQuickAssist, { NT_WIN10_REDSTONE5, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodCleanMgrAdmin,       MethodCleanMgrAdmin, { NT_WIN10_21H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodUnifiedConsent,      MethodUnifiedConsent, { NT_WIN10_21H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { UacMethodTabTip,              MethodTabTip, { NT_WIN8_BLUE, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
 };
 
 /*
@@ -951,6 +954,18 @@ UCM_API(MethodCleanMgrAdmin)
 {
 #ifdef _WIN64
     return ucmCleanMgrAdminMethod(
+        Parameter->PayloadCode,
+        Parameter->PayloadSize);
+#else
+    UNREFERENCED_PARAMETER(Parameter);
+    return STATUS_NOT_SUPPORTED;
+#endif
+}
+
+UCM_API(MethodTabTip)
+{
+#ifdef _WIN64
+    return ucmTabTipMethod(
         Parameter->PayloadCode,
         Parameter->PayloadSize);
 #else

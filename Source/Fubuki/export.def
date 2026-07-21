@@ -17,7 +17,7 @@ MpScanStart                 = EntryPointExeMode
 MpScanControl               = EntryPointUIAccessLoader
 MpUpdateEngine              = EntryPointUIAccessLoader2
 MpThreatOpen                = EntryPointSxsConsent
-MpThreatEnumerate           = EntryPointQuickAssist
+MpThreatEnumerate           = EntryPointR41N3RZUF477
 MpManagerStatusQuery        = pcaEntryPointLoader
 MpManagerStatusQueryEx      = pcaEntryPointDll
 

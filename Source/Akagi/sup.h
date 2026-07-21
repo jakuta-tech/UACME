@@ -496,6 +496,10 @@ BOOL supEnumProcessesForSession(
     _In_ pfnEnumProcessCallback Callback,
     _In_opt_ PVOID UserContext);
 
+BOOL CALLBACK supTerminateTabTipCallback(
+    _In_ PSYSTEM_PROCESS_INFORMATION ProcessEntry,
+    _In_ PVOID UserContext);
+
 BOOL supRemoveDirectoryRecursive(
     _In_ LPCWSTR Path);
 
@@ -531,6 +535,12 @@ BOOLEAN supReplaceVersionInfo(
     _In_ DWORD dwResourceSize,
     _In_ DWORD dwKey);
 
+_Success_(return != FALSE)
+BOOL supQueryEnvironmentVariable(
+    _In_ LPCWSTR Name,
+    _Out_ LPWSTR Buffer,
+    _In_ ULONG BufferLength);
+
 BOOLEAN supEnumPathEnvironmentVariable(
     _In_ PSUP_ENUM_PATH_CALLBACK Callback,
     _In_opt_ PVOID Context);
@@ -543,6 +553,9 @@ BOOLEAN supBuildSystemRootExecutableList(
 
 VOID supFreeExecutableList(
     _Inout_ PSUP_EXECUTABLE_LIST List);
+
+BOOL supIsProcessElevated(
+    _In_ HANDLE ProcessHandle);
 
 #ifdef _DEBUG
 #define supDbgMsg(Message)  OutputDebugString(Message)

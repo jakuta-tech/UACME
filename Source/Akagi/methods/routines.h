@@ -18,6 +18,8 @@
 *******************************************************************************/
 #pragma once
 
+NTSTATUS ucmDisemerMethod();
+
 NTSTATUS ucmGenericAutoelevationEx(
     _In_opt_ LPCWSTR lpTargetApp,
     _In_ LPCWSTR lpTargetDll,
@@ -195,7 +197,9 @@ NTSTATUS ucmCleanMgrAdminMethod(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
 
-NTSTATUS ucmDisemerMethod();
+NTSTATUS ucmTabTipMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
 
 //
 // Post execution cleanup routines.

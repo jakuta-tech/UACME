@@ -372,14 +372,14 @@ BOOL WINAPI EntryPointSxsConsent(
 }
 
 /*
-* EntryPointQuickAssist
+* EntryPointR41N3RZUF477
 *
 * Purpose:
 *
-* Entry point to be used by QuickAssist method.
+* Entry point to be used by R41N3RZUF477 methods.
 *
 */
-BOOL WINAPI EntryPointQuickAssist(
+BOOL WINAPI EntryPointR41N3RZUF477(
     _In_ HINSTANCE hinstDLL,
     _In_ DWORD fdwReason,
     _In_ LPVOID lpvReserved

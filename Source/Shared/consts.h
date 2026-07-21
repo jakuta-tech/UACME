@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        19 Jul 2026
+*  DATE:        21 Jul 2026
 *
 *  Global consts definition file.
 *
@@ -127,7 +127,7 @@
 #define FUBUKI_ENTRYPOINT_SXS           "MpThreatOpen"
 #define FUBUKI_ENTRYPOINT_PCAEXE        "MpManagerStatusQuery"
 #define FUBUKI_ENTRYPOINT_PCADLL        "MpManagerStatusQueryEx"
-#define FUBUKI_ENTRYPOINT_QASSIST       "MpThreatEnumerate"
+#define FUBUKI_ENTRYPOINT_R41N3RZUF477  "MpThreatEnumerate"
 #define AKATSUKI_ENTRYPOINT_EXE         "Wow64LogMessageArgList" 
 #pragma endregion
 
@@ -135,6 +135,7 @@
 // Windows dll names
 //
 #define APISET_KERNEL32LEGACY       L"api-ms-win-core-kernel32-legacy-l1.DLL"
+#define ATFD_DLL                    L"ApplicationTargetedFeatureDatabase.dll"
 
 #define ATL_DLL                     L"ATL.dll"
 #define BLUETOOTHDIAGNOSTICUTIL_DLL L"BluetoothDiagnosticUtil.dll"
@@ -147,10 +148,12 @@
 #define OSKSUPPORT_DLL              L"OskSupport.dll"
 #define PCADM_DLL                   L"pcadm.dll"
 #define PERFORMANCETRACEHANDLER_DLL L"PerformanceTraceHandler.dll"
+#define RSAENH_DLL                  L"rsaenh.dll"
 #define SHELL32_DLL                 L"shell32.dll"
 #define UNIFIEDCONSENT_DLL			L"unifiedconsent.dll"
 #define WINMM_DLL                   L"winmm.dll"
 #define WOW64LOG_DLL                L"wow64log.dll"
+#define WINDOWS_STORAGE_DLL         L"windows.storage.dll"
 
 //
 // Native image cache targets
@@ -183,6 +186,7 @@
 #define SDCLT_EXE                   L"sdclt.exe"
 #define SLUI_EXE                    L"slui.exe"
 #define SYSTEMADMFLOWS_EXE          L"SystemSettingsAdminFlows.exe"
+#define TABTIP_EXE                  L"tabtip.exe"
 #define TASKHOSTW_EXE               L"taskhostw.exe"
 #define WINSAT_EXE                  L"winsat.exe"
 #define WINVER_EXE                  L"winver.exe"
@@ -213,6 +217,7 @@
 //
 // Shell Verbs
 //
+#define OPEN_VERB                   L"open"
 #define RUNAS_VERB                  L"runas"
 
 //

