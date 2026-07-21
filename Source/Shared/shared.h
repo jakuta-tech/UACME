@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2018 - 2021
+*  (C) COPYRIGHT AUTHORS, 2018 - 2026
 *
 *  TITLE:       SHARED.H
 *
-*  VERSION:     3.56
+*  VERSION:     3.71
 *
-*  DATE:        26 July 2021
+*  DATE:        21 July 2026
 *
 *  Shared include header file.
 *
@@ -35,6 +35,7 @@
 
 #include "minirtl.h"
 #include "_filename.h"
+#include "ucmbase.h"
 #include "util.h"
 #include "windefend.h"
 #include "consts.h"

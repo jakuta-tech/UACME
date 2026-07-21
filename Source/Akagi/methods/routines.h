@@ -4,9 +4,9 @@
 *
 *  TITLE:       ROUTINES.H
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        15 May 2026
+*  DATE:        21 Jul 2026
 *
 *  Prototypes of methods for UAC bypass methods table.
 *
@@ -180,6 +180,10 @@ NTSTATUS ucmSspiDatagramMethod(
     _In_ DWORD ProxyDllSize);
 
 NTSTATUS ucmRequestTraceMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
+
+NTSTATUS ucmUnifiedConsentMethod(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
 

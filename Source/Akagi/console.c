@@ -4,9 +4,9 @@
 *
 *  TITLE:       CONSOLE.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        12 Feb 2026
+*  DATE:        21 Jul 2026
 *
 *  Debug console.
 *
@@ -28,6 +28,19 @@ VOID ConsolePrint(
 )
 {
     WriteConsole(StdOutputHandle, Message, (ULONG)_strlen(Message), NULL, NULL);
+}
+
+VOID ConsolePrintText(
+    _In_ LPCWSTR Message,
+    _In_ LPCWSTR Text
+)
+{
+    WCHAR szText[MAX_PATH * 4];
+
+    if (_swprintf_s) {
+        _swprintf_s(szText, RTL_NUMBER_OF(szText), TEXT("%ws: %ws\r\n"), Message, Text);
+        ConsolePrint(szText);
+    }
 }
 
 VOID ConsolePrintValueUlong(

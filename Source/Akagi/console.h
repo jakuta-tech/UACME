@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2022
+*  (C) COPYRIGHT AUTHORS, 2022 - 2026
 *
 *  TITLE:       CONSOLE.H
 *
-*  VERSION:     3.62
+*  VERSION:     3.71
 *
-*  DATE:        08 Jul 2022
+*  DATE:        21 Jul 2026
 *
 *  Debug console header file.
 *
@@ -37,16 +37,22 @@ VOID ConsolePrintValueUlong(
     _In_ ULONG Value,
     _In_ BOOL Hexademical);
 
+VOID ConsolePrintText(
+    _In_ LPCWSTR Message,
+    _In_ LPCWSTR Text);
+
 #ifdef _UCM_CONSOLE
 #define ucmConsoleInit ConsoleInit
 #define ucmConsoleRelease ConsoleRelease
 #define ucmConsolePrintStatus ConsolePrintStatus
 #define ucmConsolePrint ConsolePrint
+#define ucmConsolePrintText ConsolePrintText
 #define ucmConsolePrintValueUlong ConsolePrintValueUlong
 #else
 #define ucmConsoleInit()
 #define ucmConsoleRelease()
 #define ucmConsolePrintStatus(Message, Status)
 #define ucmConsolePrint(Message)
+#define ucmConsolePrintText(Message, Text)
 #define ucmConsolePrintValueUlong(Message, Value, Hexademical)
 #endif

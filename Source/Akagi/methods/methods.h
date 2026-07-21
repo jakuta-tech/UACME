@@ -4,9 +4,9 @@
 *
 *  TITLE:       METHODS.H
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        21 May 2026
+*  DATE:        21 Jul 2026
 *
 *  Prototypes and definitions for UAC bypass methods table.
 *
@@ -18,111 +18,23 @@
 *******************************************************************************/
 #pragma once
 
-typedef enum _UCM_METHOD {
-    UacMethodTest = 0,          //+
-    UacMethodSysprep1 = 1,      
-    UacMethodSysprep2,          
-    UacMethodOobe,              
-    UacMethodRedirectExe,       
-    UacMethodSimda,             
-    UacMethodCarberp1,          
-    UacMethodCarberp2,          
-    UacMethodTilon,             
-    UacMethodAVrf,              
-    UacMethodWinsat,            
-    UacMethodShimPatch,         
-    UacMethodSysprep3,          
-    UacMethodMMC1,              
-    UacMethodSirefef,           
-    UacMethodGeneric,           
-    UacMethodGWX,               
-    UacMethodSysprep4,          
-    UacMethodManifest,          
-    UacMethodInetMgr,           
-    UacMethodMMC2,              
-    UacMethodSXS,               
-    UacMethodSXSConsent,        
-    UacMethodDISM,              //+
-    UacMethodComet,             
-    UacMethodEnigma0x3,         
-    UacMethodEnigma0x3_2,       
-    UacMethodExpLife,           
-    UacMethodSandworm,          
-    UacMethodEnigma0x3_3,       
-    UacMethodWow64Logger,       
-    UacMethodEnigma0x3_4,       
-    UacMethodUiAccess,          //+
-    UacMethodMsSettings,        //+
-    UacMethodDiskSilentCleanup, //+
-    UacMethodTokenMod,          
-    UacMethodJunction,          
-    UacMethodSXSDccw,           
-    UacMethodHakril,            //+
-    UacMethodCorProfiler,       //+
-    UacMethodCOMHandlers,       
-    UacMethodCMLuaUtil,         //+
-    UacMethodFwCplLua,          
-    UacMethodDccwCOM,           //+
-    UacMethodVolatileEnv,       
-    UacMethodSluiHijack,        
-    UacMethodBitlockerRC,       
-    UacMethodCOMHandlers2,      
-    UacMethodSPPLUAObject,      
-    UacMethodCreateNewLink,     
-    UacMethodDateTimeWriter,    
-    UacMethodAcCplAdmin,        
-    UacMethodDirectoryMock,     
-    UacMethodShellSdclt,        //+
-    UacMethodEgre55,            
-    UacMethodTokenModUiAccess,  //+
-    UacMethodShellWSReset,      
-    UacMethodSysprep5,          
-    UacMethodEditionUpgradeMgr, 
-    UacMethodDebugObject,       //+
-    UacMethodGlupteba,          
-    UacMethodShellChangePk,     //+
-    UacMethodMsSettings2,       //+
-    UacMethodNICPoison,         //+
-    UacMethodIeAddOnInstall,    //+
-    UacMethodWscActionProtocol, 
-    UacMethodFwCplLua2,         
-    UacMethodMsSettingsProtocol,//+
-    UacMethodMsStoreProtocol,   //+
-    UacMethodPca,               
-    UacMethodCurVer,            //+
-    UacMethodNICPoison2,        //+
-    UacMethodMsdt,              //+
-    UacMethodDotNetSerial,      
-    UacMethodVFServerTaskSched, //+
-    UacMethodVFServerDiagProf,  //+
-    UacMethodIscsiCpl,          //+
-    UacMethodAtlHijack,         //+
-    UacMethodSspiDatagram,      
-    UacMethodTokenModUiAccess2, 
-    UacMethodRequestTrace,      
-    UacMethodQuickAssist,       //+
-    UacMethodCleanMgrAdmin,     //+
-    UacMethodMax,
-    UacMethodInvalid = 0xabcdef
-} UCM_METHOD;
-
 typedef struct _UCM_METHOD_AVAILABILITY {
     ULONG MinumumWindowsBuildRequired;             //if the current build less this value this method is not working here
     ULONG MinimumExpectedFixedWindowsBuild;        //if the current build equal or greater this value this method is not working here or fixed
 } UCM_METHOD_AVAILABILITY;
 
-typedef struct tagUCM_PARAMS_BLOCK {
+typedef struct tagUCM_ARGS_BLOCK {
     UCM_METHOD Method;
     PVOID PayloadCode;
     ULONG PayloadSize;
-} UCM_PARAMS_BLOCK, *PUCM_PARAMS_BLOCK;
+} UCM_ARGS_BLOCK, *PUCM_ARGS_BLOCK;
 
 typedef NTSTATUS(CALLBACK *PUCM_API_ROUTINE)(
-    _In_ PUCM_PARAMS_BLOCK Parameter
+    _In_ PUCM_ARGS_BLOCK Parameter
     );
                   
 #define UCM_API(n) NTSTATUS CALLBACK n(     \
-    _In_ PUCM_PARAMS_BLOCK Parameter)  
+    _In_ PUCM_ARGS_BLOCK Parameter)  
 
 typedef struct _UCM_API_DISPATCH_ENTRY {
     UCM_METHOD MethodId;

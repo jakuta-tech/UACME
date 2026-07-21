@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        19 Jul 2026
+*  DATE:        21 Jul 2026
 *
 *  Common header file for the program support routines.
 *
@@ -110,7 +110,7 @@ typedef struct _SXS_SEARCH_CONTEXT {
     LPWSTR DllName;
     LPWSTR SxsKey;
     LPWSTR FullDllPath;
-} SXS_SEARCH_CONTEXT, *PSXS_SEARCH_CONTEXT;
+} SXS_SEARCH_CONTEXT, * PSXS_SEARCH_CONTEXT;
 
 //ntifs.h
 typedef struct _REPARSE_DATA_BUFFER {
@@ -137,7 +137,7 @@ typedef struct _REPARSE_DATA_BUFFER {
             UCHAR  DataBuffer[1];
         } GenericReparseBuffer;
     } DUMMYUNIONNAME;
-} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+} REPARSE_DATA_BUFFER, * PREPARSE_DATA_BUFFER;
 
 #define REPARSE_DATA_BUFFER_HEADER_LENGTH FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer.DataBuffer)
 
@@ -159,7 +159,7 @@ BOOLEAN supIsProcess32bit(
     _In_ HANDLE hProcess);
 
 BOOL supGetElevationType(
-    _Out_ TOKEN_ELEVATION_TYPE *lpType);
+    _Out_ TOKEN_ELEVATION_TYPE* lpType);
 
 BOOL supWriteBufferToFile(
     _In_ LPCWSTR lpFileName,
@@ -194,9 +194,9 @@ BOOL supRunProcess(
     _In_opt_ LPCWSTR lpParameters);
 
 void supCopyMemory(
-    _Inout_ void *dest,
+    _Inout_ void* dest,
     _In_ size_t cbdest,
-    _In_ const void *src,
+    _In_ const void* src,
     _In_ size_t cbsrc);
 
 LPWSTR supQueryEnvironmentVariableOffset(
@@ -245,16 +245,16 @@ PVOID supVirtualAlloc(
     _Inout_ PSIZE_T Size,
     _In_ ULONG AllocationType,
     _In_ ULONG Protect,
-    _Out_opt_ NTSTATUS *Status);
+    _Out_opt_ NTSTATUS* Status);
 
 BOOL supVirtualFree(
     _In_ PVOID Memory,
-    _Out_opt_ NTSTATUS *Status);
+    _Out_opt_ NTSTATUS* Status);
 
 BOOL supSecureVirtualFree(
     _In_ PVOID Memory,
     _In_ SIZE_T MemorySize,
-    _Out_opt_ NTSTATUS *Status);
+    _Out_opt_ NTSTATUS* Status);
 
 PVOID FORCEINLINE supHeapAlloc(
     _In_ SIZE_T Size);
@@ -290,7 +290,7 @@ BOOL supReplaceEnvironmentVariableValue(
     _In_ LPWSTR lpVariableName,
     _In_ DWORD dwType,
     _In_opt_ LPWSTR lpVariableData,
-    _Out_opt_ PVOID* lpOldVariableData);
+    _Out_opt_ PVOID * lpOldVariableData);
 
 BOOL supSetMountPoint(
     _In_ HANDLE hDirectory,
@@ -332,8 +332,8 @@ NTSTATUS supRegReadValue(
     _In_ HANDLE hKey,
     _In_ LPWSTR ValueName,
     _In_ DWORD ValueType,
-    _Out_ PVOID *Buffer,
-    _Out_ ULONG *BufferSize,
+    _Out_ PVOID * Buffer,
+    _Out_ ULONG * BufferSize,
     _In_opt_ HANDLE hHeap);
 
 NTSTATUS supRegCurrentUserDeleteSubKeyValue(
@@ -357,7 +357,7 @@ PVOID supDecodePointer(
 
 NTSTATUS supCreateDirectory(
     _Out_opt_ PHANDLE phDirectory,
-    _In_ OBJECT_ATTRIBUTES *ObjectAttributes,
+    _In_ OBJECT_ATTRIBUTES * ObjectAttributes,
     _In_ ULONG DirectoryShareFlags,
     _In_ ULONG DirectoryAttributes);
 
@@ -365,7 +365,9 @@ BOOL supRemoveDirectory(
     _In_ LPCWSTR lpDirectory);
 
 BOOL supCreateSharedParametersBlock(
-    _In_ PVOID ucmContext);
+    _In_ PVOID ucmContext,
+    _In_ UCM_METHOD ucmMethod,
+    _Inout_ PUACME_PARAM_BLOCK pSharedParams);
 
 VOID supDestroySharedParametersBlock(
     _In_ PVOID ucmContext);
@@ -417,13 +419,13 @@ PVOID supFindPattern(
     _In_ SIZE_T PatternSize);
 
 PVOID supLookupImageSectionByName(
-    _In_ CHAR* SectionName,
+    _In_ CHAR * SectionName,
     _In_ ULONG SectionNameLength,
     _In_ PVOID DllBase,
     _Out_ PULONG SectionSize);
 
 NTSTATUS supFindUserAssocSet(
-    _Out_ USER_ASSOC_PTR* Function);
+    _Out_ USER_ASSOC_PTR * Function);
 
 PUSER_ASSOC_SIGNATURE supGetUserAssocSetDB(
     _Out_opt_ PULONG SignatureCount);
@@ -435,7 +437,7 @@ VOID supEnumUserAssocSetDB(
 NTSTATUS supRegisterShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc,
+    _In_ USER_ASSOC_PTR * UserAssocFunc,
     _In_ LPCWSTR lpszPayload,
     _In_ BOOL fCustomURIScheme,
     _In_opt_ LPCWSTR pszDefaultValue);
@@ -444,17 +446,17 @@ NTSTATUS supUnregisterShellAssocEx(
     _In_ BOOLEAN fResetOnly,
     _In_ LPCWSTR pszExt,
     _In_opt_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc);
+    _In_ USER_ASSOC_PTR * UserAssocFunc);
 
 NTSTATUS supUnregisterShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc);
+    _In_ USER_ASSOC_PTR * UserAssocFunc);
 
 NTSTATUS supResetShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_opt_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc);
+    _In_ USER_ASSOC_PTR * UserAssocFunc);
 
 BOOL supStopTaskByName(
     _In_ LPCWSTR TaskFolder,
@@ -473,11 +475,11 @@ HANDLE supRunProcessFromParent(
     _In_opt_ LPWSTR lpCurrentDirectory,
     _In_ ULONG CreationFlags,
     _In_ WORD ShowWindowFlags,
-    _Out_opt_ HANDLE* PrimaryThread);
+    _Out_opt_ HANDLE * PrimaryThread);
 
 RPC_STATUS supCreateBindingHandle(
     _In_ RPC_WSTR RpcInterfaceUuid,
-    _Out_ RPC_BINDING_HANDLE* BindingHandle);
+    _Out_ RPC_BINDING_HANDLE * BindingHandle);
 
 BOOL supConcatenatePaths(
     _Inout_ LPWSTR Target,
