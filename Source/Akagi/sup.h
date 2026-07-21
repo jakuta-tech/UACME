@@ -557,6 +557,10 @@ VOID supFreeExecutableList(
 BOOL supIsProcessElevated(
     _In_ HANDLE ProcessHandle);
 
+BOOL supIsTaskExists(
+    _In_ LPCWSTR TaskFolder,
+    _In_ LPCWSTR TaskName);
+
 #ifdef _DEBUG
 #define supDbgMsg(Message)  OutputDebugString(Message)
 #else

@@ -2,7 +2,7 @@
 *
 *  (C) COPYRIGHT AUTHORS, 2025 - 2026
 *
-*  TITLE:       R41N3RZUF477.C
+*  TITLE:       r41n3rzuf477.C
 *
 *  VERSION:     3.71
 *
@@ -282,6 +282,8 @@ NTSTATUS ucmRegistrationProxyExecute(
 
     } while (FALSE);
 
+    supSetGlobalCompletionEvent();
+
     //
     // Restore environment.
     //
@@ -347,6 +349,11 @@ NTSTATUS ucmRequestTraceMethod(
 )
 {
     WNF_STATE_NAME state;
+
+    if (!supIsTaskExists(TEXT("Microsoft\\Windows\\PerformanceTrace"), TEXT("RequestTrace"))) {
+        supSetGlobalCompletionEvent();
+        return STATUS_NOT_SUPPORTED;
+    }
 
     state.Value = WNF_SHEL_TRACE_REQUESTED;
     return ucmRegistrationProxyExecute(PERFORMANCETRACEHANDLER_DLL, &state, ProxyDll, ProxyDllSize);
@@ -514,8 +521,6 @@ NTSTATUS ucmQuickAssistMethod(
     } while (FALSE);
 
     supSetGlobalCompletionEvent();
-
-    Sleep(1000);
 
     if (fEnvSet)
         supSetEnvVariable(TRUE, T_VOLATILE_ENV, WEBVIEW2_FOLRDER_VAR, NULL);
