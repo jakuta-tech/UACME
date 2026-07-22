@@ -35,7 +35,7 @@
 #include "winmm.h"
 #include "atldll.h"
 
-#define LoadedMsg      TEXT("Fubuki lock and loaded")
+#define FubukiLoadedMsg      TEXT("[Fubuki] Lock and loaded\r\n")
 
 
 extern UACME_PARAM_BLOCK g_SharedParams;

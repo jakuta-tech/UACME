@@ -125,6 +125,7 @@ typedef enum _UCM_METHOD {
     UacMethodCleanMgrAdmin,     //+
     UacMethodUnifiedConsent,    //+
     UacMethodTabTip,            //+
+    UacMethodNarrator,          //+
     UacMethodMax,
     UacMethodInvalid = 0xFFFF
 } UCM_METHOD;

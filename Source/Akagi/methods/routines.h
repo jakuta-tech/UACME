@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 Jul 2026
+*  DATE:        22 Jul 2026
 *
 *  Prototypes of methods for UAC bypass methods table.
 *
@@ -198,6 +198,10 @@ NTSTATUS ucmCleanMgrAdminMethod(
     _In_ DWORD ProxyDllSize);
 
 NTSTATUS ucmTabTipMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
+
+NTSTATUS ucmNarratorMethod(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
 

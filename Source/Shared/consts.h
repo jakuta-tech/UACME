@@ -77,6 +77,7 @@
 #define T_APP_ASSOC_TOASTS          L"Software\\Microsoft\\Windows\\CurrentVersion\\ApplicationAssociationToasts"
 #define T_HTMLHELP_AUTHOR           L"Software\\Microsoft\\HtmlHelp Author"
 #define T_WEBVIEW_POLICY            L"Software\\Policies\\Microsoft\\Edge\\WebView2\\BrowserExecutableFolder"
+#define T_NARRATOR                  L"Software\\Microsoft\\Narrator"
 
 #define T_CURVER                    L"CurVer"
 #define T_MSSETTINGS                L"ms-settings"
@@ -180,6 +181,7 @@
 #define MSCONFIG_EXE                L"msconfig.exe"
 #define MSCHEDEXE_EXE               L"mschedexe.exe"
 #define MSDT_EXE                    L"msdt.exe"
+#define NARRATOR_EXE                L"Narrator.exe"
 #define OSK_EXE                     L"osk.exe"
 #define PKGMGR_EXE                  L"pkgmgr.exe"
 #define QUICKASSIST_EXE             L"QuickAssist.exe"
@@ -278,6 +280,21 @@
 
 #define T_THREADINGMODEL            L"ThreadingModel"
 #define T_APARTMENT                 L"Apartment"
+
+//
+// Narrator
+//
+#define T_NARRATOR_HOME             L"NarratorHome"
+#define T_SHORTCUT_KEYS_DLG_CNT     L"ShortcutKeysDialogCount"
+#define T_SHORTCUT_KEYS_DLG_STATE   L"ShortcutKeysDialogState"
+#define T_AUTOSTART                 L"AutoStart"
+#define T_NARRATOR_UICLASS          L"NarratorUIClass"
+
+//
+// Feedback hub related trash
+//
+#define T_FEEDBACK_HUB_RELAY_NAME   L"ms-feedback"
+#define T_FEEDBACK_HUB_PROTOCOL     L"feedback-hub"
 
 //
 // COM objects elevation

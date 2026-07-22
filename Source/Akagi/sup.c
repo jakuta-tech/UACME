@@ -2332,6 +2332,7 @@ VOID supSetMethodSpecificDataToParametersBlock(
         break;
 
     case UacMethodTabTip:
+    case UacMethodNarrator:
         if (supQueryEnvironmentVariable(
             L"USERPROFILE",
             ParamBlock->szOptionalParameter1,
@@ -4769,14 +4770,14 @@ BOOL CALLBACK supEnumTaskhostTasksCallback(
 }
 
 /*
-* supTerminateTabTipCallback
+* supTerminateProcessCallback
 *
 * Purpose:
 *
-* Callback for tabtip process termination.
+* Callback for process termination.
 *
 */
-BOOL CALLBACK supTerminateTabTipCallback(
+BOOL CALLBACK supTerminateProcessCallback(
     _In_ PSYSTEM_PROCESS_INFORMATION ProcessEntry,
     _In_ PVOID UserContext
 )
@@ -4786,10 +4787,7 @@ BOOL CALLBACK supTerminateTabTipCallback(
     if (!RtlEqualUnicodeString(&ProcessEntry->ImageName, targetProcess, TRUE))
         return FALSE;
 
-    //
-    // Kill all elevated instances.
-    //
-    supxTerminateProcess(ProcessEntry->UniqueProcessId, TRUE);
+    supxTerminateProcess(ProcessEntry->UniqueProcessId, FALSE);
     return FALSE;
 }
 

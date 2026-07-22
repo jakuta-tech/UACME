@@ -191,9 +191,6 @@ BOOL ucmCreateProcessWithParent(
 HANDLE ucmGetHwndFullProcessHandle(
     _In_ HWND hwnd);
 
-HWND ucmFindFirstElevatedWindow(
-    VOID);
-
 HANDLE ucmFindFirstElevatedProcessHandle(
     VOID);
 
@@ -210,7 +207,7 @@ VOID ucmLogMessage(
     _In_ LPCWSTR Message);
 
 #ifdef _DEBUG
-#define ucmDbgMsg(Message)  OutputDebugString(Message)
+#define ucmLogDbgMsg(Message) ucmLogMessage(TEXT("ucmtrace.log"), Message)
 #else
-#define ucmDbgMsg(Message) 
+#define ucmLogDbgMsg(Message) 
 #endif

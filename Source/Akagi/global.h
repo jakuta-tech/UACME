@@ -58,6 +58,7 @@
 #include <ntstatus.h>
 #include <CommCtrl.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <AccCtrl.h>
 #include <wintrust.h>
 #include <taskschd.h>
@@ -69,7 +70,8 @@
 
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "rpcrt4.lib")
-#pragma comment (lib, "Secur32.lib")
+#pragma comment(lib, "Secur32.lib")
+#pragma comment(lib, "Shlwapi.lib")
 
 #include "shared\ucmbase.h"
 #include "shared\hde\hde64.h"

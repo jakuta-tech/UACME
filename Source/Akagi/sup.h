@@ -496,7 +496,7 @@ BOOL supEnumProcessesForSession(
     _In_ pfnEnumProcessCallback Callback,
     _In_opt_ PVOID UserContext);
 
-BOOL CALLBACK supTerminateTabTipCallback(
+BOOL CALLBACK supTerminateProcessCallback(
     _In_ PSYSTEM_PROCESS_INFORMATION ProcessEntry,
     _In_ PVOID UserContext);
 

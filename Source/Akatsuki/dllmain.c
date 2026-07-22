@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2016 - 2022
+*  (C) COPYRIGHT AUTHORS, 2016 - 2026
 *
 *  TITLE:       DLLMAIN.C
 *
-*  VERSION:     3.61
+*  VERSION:     3.71
 *
-*  DATE:        22 Jun 2022
+*  DATE:        22 Jul 2026
 *
 *  Proxy dll entry point, Akatsuki.
 *  Special dll for wow64 logger method.
@@ -28,7 +28,7 @@
 #include "shared\shared.h"
 #include "shared\libinc.h"
 
-#define LoadedMsg      TEXT("Akatsuki lock and loaded")
+#define AkatsukiLoadedMsg      TEXT("[Akatsuki] Lock and loaded\r\n")
 
 HANDLE g_SyncMutant = NULL;
 
@@ -219,7 +219,7 @@ BOOL WINAPI DllMain(
     UNREFERENCED_PARAMETER(hinstDLL);
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(AkatsukiLoadedMsg);
 
     if (wdIsEmulatorPresent() == STATUS_NEEDS_REMEDIATION)
         RtlExitUserProcess('Foff');

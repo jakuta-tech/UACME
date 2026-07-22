@@ -35,7 +35,7 @@
     <LocalDebuggerCommandArgumentsHistory>71|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugConsole|Win32'">
-    <LocalDebuggerCommandArguments>80</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>85</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArgumentsHistory>22|37|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
@@ -45,8 +45,8 @@
     <LocalDebuggerCommandArgumentsHistory>78|0|75|82|80|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugConsole|x64'">
-    <LocalDebuggerCommandArguments>80</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>85</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArgumentsHistory>82|83|84|81|80|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArgumentsHistory>83|81|80|84|85|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
 </Project>

