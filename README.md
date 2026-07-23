@@ -848,7 +848,7 @@ akagi64.exe 61 c:\windows\system32\charmap.exe
      * AlwaysNotify compatible
      * Fixed in: Windows 11 25H2 (26200)
         * How: Side effect of Windows changes
-      * Code status: removed starting from v3.7.0 :tractor:
+      * Code status: readded in v3.7.1
 81. Author: R41N3RZUF477
      * Type: Shell API
      * Method: Environment variables expansion, Dll Hijack, UIPI bypass
@@ -870,6 +870,39 @@ akagi64.exe 61 c:\windows\system32\charmap.exe
      * Fixed in: unfixed :see_no_evil:
         * How: -
       * Code status: added in v3.7.0
+83. Author: R41N3RZUF477
+     * Type: Shell API
+     * Method: Environment variables expansion, Dll Hijack
+     * Target(s): \System32\taskhostw.exe
+     * Component(s): unifiedconsent.dll
+     * Implementation: ucmUnifiedConsentMethod
+     * Works from: Windows 10 (19041)
+     * AlwaysNotify compatible
+     * Fixed in: unfixed :see_no_evil:
+        * How: -
+      * Code status: added in v3.7.1
+84. Author: R41N3RZUF477
+     * Type: Shell API
+     * Method: Environment variables expansion, Dll Hijack, UIPI bypass
+     * Target(s): \Program Files\Common Files\microsoft shared\ink\TabTip.exe
+     * Component(s): windows.storage.dll, ApplicationTargetedFeatureDatabase.dll, rsaenh.dll
+     * Implementation: ucmTabTipMethod
+     * Works from: Windows 8.1 (9600)
+     * AlwaysNotify compatible
+     * Fixed in: unfixed :see_no_evil:
+        * How: -
+      * Code status: added in v3.7.1
+85. Author: R41N3RZUF477
+     * Type: GUI Hack
+     * Method: Shell Protocol Hijack, Dll Hijack, UIPI bypass
+     * Target(s): \system32\Narrator.exe, \system32\osk.exe
+     * Component(s): OskSupport.dll
+     * Implementation: ucmNarratorMethod
+     * Works from: Windows 10 (17763)
+     * AlwaysNotify compatible
+     * Fixed in: unfixed :see_no_evil:
+        * How: -
+      * Code status: added in v3.7.1
 
 </details>
 

@@ -929,7 +929,7 @@ BOOL ucmxCreateFeedbackRelay(
         }
 
         //
-        // 1. Create HKEY_CURRENT_USER\Software\Classes\feedback-hub
+        // Create HKEY_CURRENT_USER\Software\Classes\feedback-hub
         //
         if (ERROR_SUCCESS != RegCreateKeyEx(
             HKEY_CURRENT_USER,
