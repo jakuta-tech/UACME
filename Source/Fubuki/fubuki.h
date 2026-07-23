@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2018 - 2023
+*  (C) COPYRIGHT AUTHORS, 2018 - 2026
 *
 *  TITLE:       FUBUKI.H
 *
-*  VERSION:     3.64
+*  VERSION:     3.71
 *
-*  DATE:        04 Feb 2023
+*  DATE:        21 Jul 2026
 *
 *  Fubuki global include header file.
 *
@@ -35,12 +35,7 @@
 #include "winmm.h"
 #include "atldll.h"
 
-#define LoadedMsg      TEXT("Fubuki lock and loaded")
+#define FubukiLoadedMsg      TEXT("[Fubuki] Lock and loaded\r\n")
 
-//default execution flow
-#define AKAGI_FLAG_KILO  1
-
-//suppress all additional output
-#define AKAGI_FLAG_TANGO 2
 
 extern UACME_PARAM_BLOCK g_SharedParams;

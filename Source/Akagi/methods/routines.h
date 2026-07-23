@@ -4,9 +4,9 @@
 *
 *  TITLE:       ROUTINES.H
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        15 May 2026
+*  DATE:        22 Jul 2026
 *
 *  Prototypes of methods for UAC bypass methods table.
 *
@@ -17,6 +17,8 @@
 *
 *******************************************************************************/
 #pragma once
+
+NTSTATUS ucmDisemerMethod();
 
 NTSTATUS ucmGenericAutoelevationEx(
     _In_opt_ LPCWSTR lpTargetApp,
@@ -183,6 +185,10 @@ NTSTATUS ucmRequestTraceMethod(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
 
+NTSTATUS ucmUnifiedConsentMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
+
 NTSTATUS ucmQuickAssistMethod(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
@@ -191,7 +197,13 @@ NTSTATUS ucmCleanMgrAdminMethod(
     _In_ PVOID ProxyDll,
     _In_ DWORD ProxyDllSize);
 
-NTSTATUS ucmDisemerMethod();
+NTSTATUS ucmTabTipMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
+
+NTSTATUS ucmNarratorMethod(
+    _In_ PVOID ProxyDll,
+    _In_ DWORD ProxyDllSize);
 
 //
 // Post execution cleanup routines.

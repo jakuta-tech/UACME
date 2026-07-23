@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2017 - 2025
+*  (C) COPYRIGHT AUTHORS, 2017 - 2026
 *
 *  TITLE:       UTIL.H
 *
-*  VERSION:     3.68
+*  VERSION:     3.71
 *
-*  DATE:        07 Mar 2025
+*  DATE:        21 Jul 2026
 *
 *  Global support routines header file shared between payload dlls.
 *
@@ -18,27 +18,17 @@
 *******************************************************************************/
 #pragma once
 
-typedef struct _UACME_PARAM_BLOCK {
-    ULONG Crc32;
-    ULONG SessionId;
-    ULONG AkagiFlag;
-    WCHAR szParameter[MAX_PATH + 1];
-    WCHAR szDesktop[MAX_PATH + 1];
-    WCHAR szWinstation[MAX_PATH + 1];
-    WCHAR szSignalObject[MAX_PATH + 1];
-} UACME_PARAM_BLOCK, * PUACME_PARAM_BLOCK;
-
 typedef BOOL(WINAPI* PFNCREATEPROCESSW)(
-    LPCWSTR lpApplicationName,
-    LPWSTR lpCommandLine,
-    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-    BOOL bInheritHandles,
-    DWORD dwCreationFlags,
-    LPVOID lpEnvironment,
-    LPCWSTR lpCurrentDirectory,
-    LPSTARTUPINFOW lpStartupInfo,
-    LPPROCESS_INFORMATION lpProcessInformation);
+    _In_opt_ LPCWSTR lpApplicationName,
+    _Inout_opt_ LPWSTR lpCommandLine,
+    _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
+    _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+    _In_ BOOL bInheritHandles,
+    _In_ DWORD dwCreationFlags,
+    _In_opt_ LPVOID lpEnvironment,
+    _In_opt_ LPCWSTR lpCurrentDirectory,
+    _In_ LPSTARTUPINFOW lpStartupInfo,
+    _Out_ LPPROCESS_INFORMATION lpProcessInformation);
 
 typedef BOOL(WINAPI* PFNCREATEPROCESSASUSERW)(
     _In_opt_ HANDLE hToken,
@@ -52,11 +42,6 @@ typedef BOOL(WINAPI* PFNCREATEPROCESSASUSERW)(
     _In_opt_ LPCWSTR lpCurrentDirectory,
     _In_ LPSTARTUPINFOW lpStartupInfo,
     _Out_ LPPROCESS_INFORMATION lpProcessInformation);
-
-typedef struct _OBJSCANPARAM {
-    PWSTR Buffer;
-    SIZE_T BufferSize;
-} OBJSCANPARAM, * POBJSCANPARAM;
 
 typedef struct _OPLOCK_FILE_CONTEXT {
     DWORD Length;
@@ -117,8 +102,11 @@ BOOL ucmLaunchPayload2(
     _In_opt_ DWORD cbPayload);
 
 BOOL ucmLaunchPayload3(
+    _In_ UCM_METHOD ucmMethod,
     _In_opt_ LPWSTR pszPayload,
-    _In_opt_ DWORD cbPayload);
+    _In_opt_ DWORD cbPayload,
+    _In_ LPWSTR pszOpLockFile,
+    _In_ LPWSTR pszTask);
 
 LPWSTR ucmQueryRuntimeInfo(
     _In_ BOOL ReturnData);
@@ -161,6 +149,11 @@ PLARGE_INTEGER ucmFormatTimeOut(
 VOID ucmSleep(
     _In_ DWORD Miliseconds);
 
+BOOL ucmQueryEnvironmentVariable(
+    _In_ LPCWSTR Name,
+    _Out_ LPWSTR Buffer,
+    _In_ ULONG BufferLength);
+
 BOOL ucmSetEnvironmentVariable(
     _In_ LPCWSTR lpName,
     _In_ LPCWSTR lpValue);
@@ -198,14 +191,23 @@ BOOL ucmCreateProcessWithParent(
 HANDLE ucmGetHwndFullProcessHandle(
     _In_ HWND hwnd);
 
-HWND ucmFindFirstElevatedWindow(
+HANDLE ucmFindFirstElevatedProcessHandle(
     VOID);
 
-BOOL ucmStartBackupLockedElevatedProcess(
+BOOL ucmStartLockedElevatedProcess(
+    _In_ LPCWSTR OplockFile,
+    _In_ LPCWSTR TaskName,
     _In_ POPLOCK_FILE_CONTEXT ofc);
 
+BOOL ucmRunScheduledTask(
+    _In_ LPCWSTR TaskName);
+
+VOID ucmLogMessage(
+    _In_ LPCWSTR FileName,
+    _In_ LPCWSTR Message);
+
 #ifdef _DEBUG
-#define ucmDbgMsg(Message)  OutputDebugString(Message)
+#define ucmLogDbgMsg(Message) ucmLogMessage(TEXT("ucmtrace.log"), Message)
 #else
-#define ucmDbgMsg(Message) 
+#define ucmLogDbgMsg(Message) 
 #endif

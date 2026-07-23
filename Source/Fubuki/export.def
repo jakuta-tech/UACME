@@ -17,7 +17,7 @@ MpScanStart                 = EntryPointExeMode
 MpScanControl               = EntryPointUIAccessLoader
 MpUpdateEngine              = EntryPointUIAccessLoader2
 MpThreatOpen                = EntryPointSxsConsent
-MpThreatEnumerate           = EntryPointBackupLocked
+MpThreatEnumerate           = EntryPointR41N3RZUF477
 MpManagerStatusQuery        = pcaEntryPointLoader
 MpManagerStatusQueryEx      = pcaEntryPointDll
 
@@ -29,6 +29,7 @@ LoadLibraryShim             = DummyFunc
 ; OSKSUPPORT.DLL
 InitializeOSKSupport        = DummyFunc
 UninitializeOSKSupport      = DummyFunc
+DoMsCtfMonitor				= DummyFunc
 
 ; DUSER.DLL
 InvalidateGadget            = DummyFunc
@@ -52,7 +53,6 @@ GdiplusStartup              = DummyFunc
 ; WDI
 WdiDiagnosticModuleMain     = WdiStubGeneric
 WdiHandleInstance           = WdiStubGeneric
-
 WdiGetDiagnosticModuleInterfaceVersion
 
 ; Rest of exports

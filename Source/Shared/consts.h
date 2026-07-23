@@ -4,9 +4,9 @@
 *
 *  TITLE:       CONSTS.H
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        15 May 2026
+*  DATE:        21 Jul 2026
 *
 *  Global consts definition file.
 *
@@ -29,8 +29,8 @@
 
 #define UCM_VERSION_MAJOR       3
 #define UCM_VERSION_MINOR       7
-#define UCM_VERSION_REVISION    0
-#define UCM_VERSION_BUILD       2605
+#define UCM_VERSION_REVISION    1
+#define UCM_VERSION_BUILD       2607
 
 #define SUPRUNPROCESS_TIMEOUT_DEFAULT 12000
 
@@ -77,6 +77,7 @@
 #define T_APP_ASSOC_TOASTS          L"Software\\Microsoft\\Windows\\CurrentVersion\\ApplicationAssociationToasts"
 #define T_HTMLHELP_AUTHOR           L"Software\\Microsoft\\HtmlHelp Author"
 #define T_WEBVIEW_POLICY            L"Software\\Policies\\Microsoft\\Edge\\WebView2\\BrowserExecutableFolder"
+#define T_NARRATOR                  L"Software\\Microsoft\\Narrator"
 
 #define T_CURVER                    L"CurVer"
 #define T_MSSETTINGS                L"ms-settings"
@@ -127,7 +128,7 @@
 #define FUBUKI_ENTRYPOINT_SXS           "MpThreatOpen"
 #define FUBUKI_ENTRYPOINT_PCAEXE        "MpManagerStatusQuery"
 #define FUBUKI_ENTRYPOINT_PCADLL        "MpManagerStatusQueryEx"
-#define FUBUKI_ENTRYPOINT_QASSIST       "MpThreatEnumerate"
+#define FUBUKI_ENTRYPOINT_R41N3RZUF477  "MpThreatEnumerate"
 #define AKATSUKI_ENTRYPOINT_EXE         "Wow64LogMessageArgList" 
 #pragma endregion
 
@@ -135,6 +136,7 @@
 // Windows dll names
 //
 #define APISET_KERNEL32LEGACY       L"api-ms-win-core-kernel32-legacy-l1.DLL"
+#define ATFD_DLL                    L"ApplicationTargetedFeatureDatabase.dll"
 
 #define ATL_DLL                     L"ATL.dll"
 #define BLUETOOTHDIAGNOSTICUTIL_DLL L"BluetoothDiagnosticUtil.dll"
@@ -147,9 +149,12 @@
 #define OSKSUPPORT_DLL              L"OskSupport.dll"
 #define PCADM_DLL                   L"pcadm.dll"
 #define PERFORMANCETRACEHANDLER_DLL L"PerformanceTraceHandler.dll"
+#define RSAENH_DLL                  L"rsaenh.dll"
 #define SHELL32_DLL                 L"shell32.dll"
+#define UNIFIEDCONSENT_DLL			L"unifiedconsent.dll"
 #define WINMM_DLL                   L"winmm.dll"
 #define WOW64LOG_DLL                L"wow64log.dll"
+#define WINDOWS_STORAGE_DLL         L"windows.storage.dll"
 
 //
 // Native image cache targets
@@ -176,12 +181,14 @@
 #define MSCONFIG_EXE                L"msconfig.exe"
 #define MSCHEDEXE_EXE               L"mschedexe.exe"
 #define MSDT_EXE                    L"msdt.exe"
+#define NARRATOR_EXE                L"Narrator.exe"
 #define OSK_EXE                     L"osk.exe"
 #define PKGMGR_EXE                  L"pkgmgr.exe"
 #define QUICKASSIST_EXE             L"QuickAssist.exe"
 #define SDCLT_EXE                   L"sdclt.exe"
 #define SLUI_EXE                    L"slui.exe"
 #define SYSTEMADMFLOWS_EXE          L"SystemSettingsAdminFlows.exe"
+#define TABTIP_EXE                  L"tabtip.exe"
 #define TASKHOSTW_EXE               L"taskhostw.exe"
 #define WINSAT_EXE                  L"winsat.exe"
 #define WINVER_EXE                  L"winver.exe"
@@ -207,10 +214,12 @@
 #define MMCEX_DIR                   L"\\MMCEx"
 #define WBEM_DIR                    L"wbem\\"
 #define WEBVIEW_DIR                 L"EBWebView"
+#define REGDB_DIR                   L"\\Registration"
 
 //
 // Shell Verbs
 //
+#define OPEN_VERB                   L"open"
 #define RUNAS_VERB                  L"runas"
 
 //
@@ -271,6 +280,21 @@
 
 #define T_THREADINGMODEL            L"ThreadingModel"
 #define T_APARTMENT                 L"Apartment"
+
+//
+// Narrator
+//
+#define T_NARRATOR_HOME             L"NarratorHome"
+#define T_SHORTCUT_KEYS_DLG_CNT     L"ShortcutKeysDialogCount"
+#define T_SHORTCUT_KEYS_DLG_STATE   L"ShortcutKeysDialogState"
+#define T_AUTOSTART                 L"AutoStart"
+#define T_NARRATOR_UICLASS          L"NarratorUIClass"
+
+//
+// Feedback hub related trash
+//
+#define T_FEEDBACK_HUB_RELAY_NAME   L"ms-feedback"
+#define T_FEEDBACK_HUB_PROTOCOL     L"feedback-hub"
 
 //
 // COM objects elevation

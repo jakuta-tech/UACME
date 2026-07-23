@@ -58,6 +58,7 @@
 #include <ntstatus.h>
 #include <CommCtrl.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <AccCtrl.h>
 #include <wintrust.h>
 #include <taskschd.h>
@@ -69,8 +70,10 @@
 
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "rpcrt4.lib")
-#pragma comment (lib, "Secur32.lib")
+#pragma comment(lib, "Secur32.lib")
+#pragma comment(lib, "Shlwapi.lib")
 
+#include "shared\ucmbase.h"
 #include "shared\hde\hde64.h"
 #include "shared\ntos\ntos.h"
 #include "shared\ntos\ntbuilds.h"
@@ -89,12 +92,6 @@
 #include "console.h"
 #include "methods\methods.h"
 
-//default execution flow
-#define AKAGI_FLAG_KILO  1
-
-//suppress all additional output
-#define AKAGI_FLAG_TANGO 2
-
 typedef struct _UACME_SHARED_CONTEXT {
     HANDLE hIsolatedNamespace;
     HANDLE hSharedSection;
@@ -105,11 +102,16 @@ typedef struct _UACME_CONTEXT {
     BOOLEAN                 IsWow64;
     ULONG                   Cookie;
     ULONG                   dwBuildNumber;
-    ULONG                   AkagiFlag;
     ULONG                   IFileOperationFlags;
-
     // Count of characters
     ULONG                   OptionalParameterLength; 
+    union {
+        ULONG Flags;
+        struct {
+            ULONG QueryRuntimeInformation : 1;
+            ULONG Reserved : 31;
+        };
+    };
 
     PVOID                   ucmHeap;
     pfnDecompressPayload    DecompressRoutine;
@@ -136,16 +138,6 @@ typedef struct _UACME_CONTEXT {
     // Default payload (system32\cmd.exe), limited to MAX_PATH
     WCHAR                   szDefaultPayload[MAX_PATH + 1]; 
 } UACMECONTEXT, *PUACMECONTEXT;
-
-typedef struct _UACME_PARAM_BLOCK {
-    ULONG Crc32;
-    ULONG SessionId;
-    ULONG AkagiFlag;
-    WCHAR szParameter[MAX_PATH + 1];
-    WCHAR szDesktop[MAX_PATH + 1];
-    WCHAR szWinstation[MAX_PATH + 1];
-    WCHAR szSignalObject[MAX_PATH + 1];
-} UACME_PARAM_BLOCK, *PUACME_PARAM_BLOCK;
 
 typedef UINT(WINAPI *pfnEntryPoint)(
     _In_ UCM_METHOD Method,
