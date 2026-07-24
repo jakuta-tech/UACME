@@ -93,6 +93,9 @@
 #define T_APPXSVC                   L"AppXSvc"
 #define T_PCASVC                    L"PcaSvc"
 
+#define T_PF_ENV                    L"ProgramFiles="
+#define T_MMC_WND_CLASS             L"MMCMainFrame"
+
 #pragma endregion
 
 #define T_SOFTWARE_CLASSES          L"Software\\Classes"
@@ -122,7 +125,7 @@
 
 #define FUBUKI_EXT_ENTRYPOINT           "MpManagerOpen"
 #define FUBUKI_WND_HOOKPROC             "MpHandleClose"
-#define FUBUKI_DEFAULT_ENTRYPOINT       "MpScanStart"
+#define FUBUKI_EXE_ENTRYPOINT           "MpScanStart"
 #define FUBUKI_ENTRYPOINT_UIACCESS2     "MpScanControl"
 #define FUBUKI_ENTRYPOINT_UIACCESS3     "MpUpdateEngine"
 #define FUBUKI_ENTRYPOINT_SXS           "MpThreatOpen"
@@ -182,6 +185,7 @@
 #define MSCHEDEXE_EXE               L"mschedexe.exe"
 #define MSDT_EXE                    L"msdt.exe"
 #define NARRATOR_EXE                L"Narrator.exe"
+#define NGENTASK_EXE                L"ngentask.exe"
 #define OSK_EXE                     L"osk.exe"
 #define PKGMGR_EXE                  L"pkgmgr.exe"
 #define QUICKASSIST_EXE             L"QuickAssist.exe"

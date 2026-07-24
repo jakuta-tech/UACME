@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2019 - 2025
+*  (C) COPYRIGHT AUTHORS, 2019 - 2026
 *
 *  TITLE:       UIHACKS.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        07 Jul 2025
+*  DATE:        23 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -338,7 +338,7 @@ VOID ucmUIHackExecute2(
     if (ShellExecuteEx(&shinfo)) {
 
         do {
-            hwnd = FindWindow(L"MMCMainFrame", NULL);
+            hwnd = FindWindow(T_MMC_WND_CLASS, NULL);
             if (hwnd)
                 break;
             else {

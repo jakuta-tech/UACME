@@ -4,9 +4,9 @@
 *
 *  TITLE:       SUP.C
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        19 May 2026
+*  DATE:        23 Jul 2026
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -772,8 +772,8 @@ void supCopyMemory(
     _In_ size_t cbsrc
 )
 {
-    char* d = (char*)dest;
-    char* s = (char*)src;
+    volatile char* d = (volatile char*)dest;
+    volatile const char* s = (volatile const char*)src;
 
     if ((dest == 0) || (src == 0) || (cbdest == 0))
         return;
@@ -2325,6 +2325,10 @@ VOID supSetMethodSpecificDataToParametersBlock(
 )
 {
     switch (Method) {
+
+    case UacMethodHakril:
+        ParamBlock->ParentIsMMC = TRUE;
+        break;
 
     case UacMethodQuickAssist:
         _strcpy(ParamBlock->szOptionalParameter1, TEXT("\\System32\\WiFiCloudStore.dll"));

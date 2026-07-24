@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 Jul 2026
+*  DATE:        23 Jul 2026
 *
 *  Global support routines header file shared between payload dlls.
 *
@@ -201,6 +201,8 @@ BOOL ucmStartLockedElevatedProcess(
 
 BOOL ucmRunScheduledTask(
     _In_ LPCWSTR TaskName);
+
+BOOL ucmHideMmc();
 
 VOID ucmLogMessage(
     _In_ LPCWSTR FileName,

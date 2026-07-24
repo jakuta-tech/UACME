@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        22 Jul 2026
+*  DATE:        23 Jul 2026
 *
 *  Prototypes of methods for UAC bypass methods table.
 *
@@ -225,6 +225,9 @@ VOID ucmDismMethodCleanup(
     VOID);
 
 BOOL ucmHakrilMethodCleanup(
+    VOID);
+
+VOID ucmCorProfilerCleanup(
     VOID);
 
 VOID ucmWusaCabinetCleanup(

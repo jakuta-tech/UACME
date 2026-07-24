@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 Jul 2026
+*  DATE:        23 Jul 2026
 *
 *  Prototypes and definitions for UAC bypass methods table.
 *

